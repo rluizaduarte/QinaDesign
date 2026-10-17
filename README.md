@@ -5,7 +5,7 @@ Projeto integrador com a empresa Qina Design. Sistema para atualização e geren
 
 | Camada | Tecnologia |
 | --- | --- |
-| Front-end | React, Vite, TypeScript |
+| Front-end | React, Next,js, JavaScript |
 | Back-end | Node.js, NestJS, TypeScript |
 | Banco de dados | PostgreSQL |
 | ORM | Prisma |
