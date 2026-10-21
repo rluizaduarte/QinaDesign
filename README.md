@@ -11,7 +11,7 @@ Projeto integrador com a empresa Qina Design. Sistema para atualização e geren
 | ORM | Prisma |
 | Autenticação | JWT |
 | Hospedagem do front-end | Vercel |
-| Hospedagem do back-end e do banco | ? |
+| Hospedagem do back-end e do banco | Back4App |
 
 ## Estrutura do repositório
 
