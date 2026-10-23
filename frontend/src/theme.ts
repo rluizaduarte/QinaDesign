@@ -13,6 +13,24 @@ const theme = createTheme({
   typography: {
     fontFamily: "var(--font-satoshi), sans-serif",
   },
+  components: {
+    MuiContainer: {
+      defaultProps: {
+        maxWidth: false,
+        disableGutters: true,
+      },
+      styleOverrides: {
+        root: {
+          width: "100%",
+          maxWidth: 1280,
+          marginLeft: "auto",
+          marginRight: "auto",
+          paddingLeft: "clamp(24px, 5vw, 80px)",
+          paddingRight: "clamp(24px, 5vw, 80px)",
+        },
+      },
+    },
+  },
 });
 
 export default theme;
