@@ -1,16 +1,25 @@
-import Image from "next/image";
-import styles from "./page.module.css";
-import Button from "@mui/material/Button";
-import Typography from "@mui/material/Typography";
+import Box from "@mui/material/Box";
+import Container from "@mui/material/Container";
+import Label from "../components/Label";
+import SectionTitle from "../components/SectionTitle";
 
-export default function Home() {
+export default function Page() {
   return (
-    <>
-      <Typography variant="h1">Teste do tema</Typography>
-      <Typography variant="h4">
-        Se este texto estiver em Satoshi, a fonte está funcionando.
-      </Typography>
-      <Button variant="contained">Botão MUI</Button>
-    </>
+    <Box
+      component="section"
+      sx={{
+        bgcolor: "#E4E3E0",
+        minHeight: "100vh",
+        display: "flex",
+        alignItems: "center",
+      }}
+    >
+      <Container>
+        <Label>acompanhe seu pedido</Label>
+        <SectionTitle italic="seu pedido.">
+          Entenda em qual <br /> etapa está o
+        </SectionTitle>
+      </Container>
+    </Box>
   );
 }
