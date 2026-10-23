@@ -9,6 +9,9 @@ const theme = createTheme({
       dark: "#394B44",
       light: "#5C7A65",
     },
+    text: {
+      primary: "#1A1A1A",
+    },
   },
   typography: {
     fontFamily: "var(--font-satoshi), sans-serif",
