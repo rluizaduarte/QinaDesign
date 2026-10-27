@@ -109,8 +109,14 @@ export default function AcompanharPedido() {
                 <Typography variant="caption" display="block">
                   {etapa.data}
                 </Typography>
-                <Link href="#" variant="caption" underline="always" color="inherit">
-                  Observações sobre o andamento da etapa
+                <Link
+                href="#"
+                variant="caption"
+                underline="always"
+                color="inherit"
+                sx={{ display: "block", mt: 0.5 }}
+>
+                Observações sobre o andamento da etapa
                 </Link>
               </StepContent>
             </Step>
