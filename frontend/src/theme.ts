@@ -11,27 +11,42 @@ export const cores = {
 };
 
 const theme = createTheme({
-  // 2) ADICIONE: este bloco palette
   palette: {
     primary: {
-      main: cores.verdeProfundo,
-      contrastText: cores.offWhite,
+      main: "#4A6B58",
+      dark: "#394B44",
+      light: "#5C7A65",
     },
     secondary: {
-      main: cores.begeAreia,
-      contrastText: cores.offWhite,
-    },
-    background: {
-      default: cores.offWhite,
-      paper: cores.offWhite,
+      main: "#E4DED1",
     },
     text: {
-      primary: cores.ferroCru,
+      primary: "#1A1A1A",
+    },
+    background: {
+      default: "#E4E3E0",
     },
   },
-  // o que você já tinha continua igual
   typography: {
     fontFamily: "var(--font-satoshi), sans-serif",
+  },
+  components: {
+    MuiContainer: {
+      defaultProps: {
+        maxWidth: false,
+        disableGutters: true,
+      },
+      styleOverrides: {
+        root: {
+          width: "100%",
+          maxWidth: 1280,
+          marginLeft: "auto",
+          marginRight: "auto",
+          paddingLeft: "clamp(24px, 5vw, 80px)",
+          paddingRight: "clamp(24px, 5vw, 80px)",
+        },
+      },
+    },
   },
 });
 
