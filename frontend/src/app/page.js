@@ -8,7 +8,6 @@ export default function Page() {
     <Box
       component="section"
       sx={{
-        bgcolor: "#E4E3E0",
         minHeight: "100vh",
         display: "flex",
         alignItems: "center",

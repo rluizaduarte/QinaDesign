@@ -12,6 +12,9 @@ const theme = createTheme({
     text: {
       primary: "#1A1A1A",
     },
+    background: {
+      default: "#E4E3E0",
+    },
   },
   typography: {
     fontFamily: "var(--font-satoshi), sans-serif",
