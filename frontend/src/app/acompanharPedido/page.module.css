@@ -1,0 +1,132 @@
+.container {
+  min-height: 100vh;
+  padding: 24px;
+  max-width: 480px;
+  margin: 0 auto;
+}
+
+/* Barra de pesquisa */
+.busca {
+  display: flex;
+  align-items: center;
+  margin-bottom: 32px;
+}
+
+.input {
+  flex: 1;
+  height: 40px;
+  padding: 0 12px;
+  border: 1px solid currentColor;
+  border-right: none;
+}
+
+.botaoBusca {
+  height: 40px;
+  width: 44px;
+  border: 1px solid currentColor;
+  background: transparent;
+  cursor: pointer;
+}
+
+/* Cabeçalho do pedido */
+.cabecalho {
+  margin-bottom: 32px;
+}
+
+.rotulo {
+  font-size: 12px;
+  letter-spacing: 1px;
+}
+
+.numeroPedido {
+  margin: 4px 0;
+  font-size: 40px;
+}
+
+.criadoEm {
+  margin: 0;
+  font-style: italic;
+}
+
+/* Linha do tempo */
+.lista {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.etapa {
+  position: relative;
+  display: flex;
+  align-items: flex-start;
+  gap: 16px;
+  padding-bottom: 28px;
+}
+
+/* linha vertical ligando os círculos */
+.etapa:not(:last-child)::after {
+  content: "";
+  position: absolute;
+  left: 19px;
+  top: 44px;
+  bottom: 4px;
+  width: 2px;
+  background: currentColor;
+  opacity: 0.2;
+}
+
+.numero {
+  flex-shrink: 0;
+  width: 40px;
+  height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  border: 2px solid currentColor;
+  font-size: 14px;
+}
+
+.info {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding-top: 2px;
+}
+
+.nome {
+  font-size: 14px;
+}
+
+.data,
+.obs {
+  font-size: 11px;
+}
+
+.obs {
+  text-decoration: underline;
+  color: inherit;
+}
+
+/* Estados */
+.concluida .numero {
+  opacity: 0.6;
+}
+
+.atual .numero {
+  width: 48px;
+  height: 48px;
+  background: currentColor;
+}
+
+.atual .numero {
+  color: white; /* ajuste depois na estilização */
+}
+
+.pendente {
+  opacity: 0.4;
+}
+
+.pendente .numero {
+  border: none;
+}
