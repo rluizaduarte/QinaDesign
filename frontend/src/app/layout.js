@@ -1,6 +1,7 @@
 import "./globals.css";
 import localFont from "next/font/local";
 import AppThemeProvider from "../ThemeProvider";
+import Header from "../components/Header";
 
 const satoshi = localFont({
   src: [
@@ -68,7 +69,10 @@ export default function RootLayout({ children }) {
   return (
     <html lang="pt-BR" className={satoshi.variable}>
       <body>
-        <AppThemeProvider>{children}</AppThemeProvider>
+        <AppThemeProvider>
+          <Header />
+          {children}
+        </AppThemeProvider>
       </body>
     </html>
   );
