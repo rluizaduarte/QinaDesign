@@ -13,34 +13,45 @@ enum SituacaoPedido {
 }
 
 model Pedido {
-  id                     Int               @id @default(autoincrement())
-  codigo                 String            @unique
-  nomeCliente            String
-  titulo                 String
-  dataInicio             DateTime
-  situacao               SituacaoPedido    @default(EM_ANDAMENTO)
-  etapaAtualId           Int?
-  etapaAtual             Etapa?            @relation("EtapaAtualPedido", fields: [etapaAtualId], references: [id])
-  historicos             HistoricoEtapa[]
-  dataUltimaAtualizacao  DateTime           @updatedAt
-  criadoEm               DateTime           @default(now())
+  id                    Int              @id @default(autoincrement())
+  codigo                String           @unique
+  nomeCliente           String
+  titulo                String
+  dataInicio            DateTime
+  situacao              SituacaoPedido   @default(EM_ANDAMENTO)
+  etapaAtualId          Int?
+  etapaAtual            Etapa?           @relation("EtapaAtualPedido", fields: [etapaAtualId], references: [id])
+  historicos            HistoricoEtapa[]
+  dataUltimaAtualizacao DateTime         @updatedAt
+  criadoEm              DateTime         @default(now())
 }
 
 model Etapa {
-  id              Int               @id @default(autoincrement())
-  nome            String            @unique
-  ordem           Int               @unique
-  pedidosAtuais   Pedido[]          @relation("EtapaAtualPedido")
-  historicos      HistoricoEtapa[]
+  id            Int              @id @default(autoincrement())
+  nome          String           @unique
+  ordem         Int              @unique
+  pedidosAtuais Pedido[]         @relation("EtapaAtualPedido")
+  historicos    HistoricoEtapa[]
 }
 
 model HistoricoEtapa {
-  id          Int       @id @default(autoincrement())
-  pedidoId    Int
-  etapaId     Int
-  dataHora    DateTime  @default(now())
-  observacao  String?
+  id         Int      @id @default(autoincrement())
+  pedidoId   Int
+  etapaId    Int
+  dataHora   DateTime @default(now())
+  observacao String?
 
-  pedido      Pedido    @relation(fields: [pedidoId], references: [id], onDelete: Cascade)
-  etapa       Etapa     @relation(fields: [etapaId], references: [id])
+  pedido Pedido @relation(fields: [pedidoId], references: [id], onDelete: Cascade)
+  etapa  Etapa  @relation(fields: [etapaId], references: [id])
+}
+
+model UsuarioAdministrativo {
+  id           Int      @id @default(autoincrement())
+  nome         String
+  email        String   @unique
+  senhaHash    String
+  criadoEm     DateTime @default(now())
+  atualizadoEm DateTime @updatedAt
+
+  @@map("usuarios_administrativos")
 }
