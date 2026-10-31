@@ -1,5 +1,6 @@
 "use client";
 
+import { useRouter } from "next/navigation";
 import { useState } from "react";
 import IconButton from "@mui/material/IconButton";
 import InputBase from "@mui/material/InputBase";
@@ -10,16 +11,16 @@ const hidden = { opacity: 0, pointerEvents: "none" };
 
 export default function SearchForm({ children }) {
   const [value, setValue] = useState("");
-  const [searched, setSearched] = useState(false);
+  const router = useRouter();
 
   function handleChange(event) {
     setValue(event.target.value);
-    if (!event.target.value) setSearched(false);
   }
 
   function handleSubmit(event) {
     event.preventDefault();
-    if (value.trim()) setSearched(true);
+    const codigo = value.trim();
+    if (codigo) router.push(`/pedido/${encodeURIComponent(codigo)}`);
   }
 
   return (
