@@ -1,4 +1,5 @@
 import Image from "next/image";
+import Link from "next/link";
 import Container from "@mui/material/Container";
 
 export default function Header() {
@@ -6,12 +7,14 @@ export default function Header() {
     <Container
       sx={{ position: "absolute", top: 0, left: 0, right: 0, pt: 1.5 }}
     >
-      <Image
-        src="/logo_horizontal-verde.png"
-        alt="Qina Design"
-        width={165}
-        height={40}
-      />
+      <Link href={"/"}>
+        <Image
+          src="/logo_horizontal-verde.png"
+          alt="Qina Design"
+          width={165}
+          height={40}
+        />
+      </Link>
     </Container>
   );
 }
