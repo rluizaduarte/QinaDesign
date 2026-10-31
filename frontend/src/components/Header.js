@@ -9,7 +9,7 @@ export default function Header() {
     >
       <Link href={"/"}>
         <Image
-          src="/logo_horizontal-verde.png"
+          src="/logo_horizontal-verde.svg"
           alt="Qina Design"
           width={165}
           height={40}
