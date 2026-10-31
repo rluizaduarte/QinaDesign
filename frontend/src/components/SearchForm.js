@@ -30,58 +30,68 @@ export default function SearchForm({ children }) {
         alignItems: "center",
         flexWrap: "wrap",
         gap: 2,
-        "& form:hover + div, & form:focus-within + div": hidden,
       }}
     >
+      {/* espaço reservado de 265px: o form cresce por cima dele sem empurrar o botão */}
       <Box
-        component="form"
-        onSubmit={handleSubmit}
         sx={{
-          width: value ? 550 : 265,
-          maxWidth: "100%",
-          bgcolor: "primary.dark",
-          color: "secondary.main",
-          borderRadius: "4px",
-          overflow: "hidden",
-          transition: "width 0.3s cubic-bezier(0.16, 1, 0.3, 1)",
-          "&:hover, &:focus-within": { width: 550 },
+          position: "relative",
+          zIndex: 1,
+          width: 265,
+          flexShrink: 0,
+          "&:hover + div, &:focus-within + div": hidden,
         }}
       >
         <Box
+          component="form"
+          onSubmit={handleSubmit}
           sx={{
-            display: "flex",
-            alignItems: "center",
-            gap: 1,
-            height: 49,
-            px: 2,
+            width: value ? 550 : 265,
+            maxWidth: "calc(100vw - 48px)",
+            bgcolor: "primary.dark",
+            color: "secondary.main",
+            borderRadius: "4px",
+            overflow: "hidden",
+            transition: "width 0.3s cubic-bezier(0.16, 1, 0.3, 1)",
+            "&:hover, &:focus-within": { width: 550 },
           }}
         >
-          <InputBase
-            value={value}
-            onChange={handleChange}
-            placeholder="Digite o código do pedido"
-            inputProps={{ "aria-label": "Código do pedido" }}
+          <Box
             sx={{
-              flex: 1,
-              color: "inherit",
-              fontSize: "0.9rem",
-              fontWeight: 500,
-              letterSpacing: "0.02em",
-              "& input::placeholder": { color: "secondary.main", opacity: 1 },
-            }}
-          />
-          <IconButton
-            type="submit"
-            aria-label="Buscar pedido"
-            disableRipple
-            sx={{
-              p: 0,
-              color: "inherit",
-              "&:hover": { bgcolor: "transparent" },
+              display: "flex",
+              alignItems: "center",
+              gap: 1,
+              height: 49,
+              px: 2,
             }}
           >
-            <Search size={24} />
-          </IconButton>
+            <InputBase
+              value={value}
+              onChange={handleChange}
+              placeholder="Digite o código do pedido"
+              inputProps={{ "aria-label": "Código do pedido" }}
+              sx={{
+                flex: 1,
+                color: "inherit",
+                fontSize: "0.9rem",
+                fontWeight: 500,
+                letterSpacing: "0.02em",
+                "& input::placeholder": { color: "secondary.main", opacity: 1 },
+              }}
+            />
+            <IconButton
+              type="submit"
+              aria-label="Buscar pedido"
+              disableRipple
+              sx={{
+                p: 0,
+                color: "inherit",
+                "&:hover": { bgcolor: "transparent" },
+              }}
+            >
+              <Search size={24} />
+            </IconButton>
+          </Box>
         </Box>
       </Box>
 
