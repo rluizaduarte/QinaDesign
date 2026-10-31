@@ -27,21 +27,21 @@ export default function EtapaConcluida({ nome, data, comentario, ultima }) {
             justifyContent: "center",
             borderRadius: "50%",
             border: "1px solid",
-            borderColor: "primary.light",
+            borderColor: (theme) => alpha(theme.palette.primary.light, 0.5),
             bgcolor: (theme) => alpha(theme.palette.primary.dark, 0.1),
             color: "primary.light",
           }}
         >
-          <Check size={24} />
+          <Check size={24} strokeWidth={1} />
         </Box>
 
         {!ultima && (
           <Box
             sx={{
               flex: 1,
-              minHeight: 24,
+              minHeight: 34,
               borderLeft: "1px solid",
-              borderColor: "primary.light",
+              borderColor: (theme) => alpha(theme.palette.primary.light, 0.5),
             }}
           />
         )}

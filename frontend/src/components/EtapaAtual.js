@@ -30,7 +30,7 @@ export default function EtapaAtual({ nome, data, comentario, ultima }) {
             color: "secondary.main",
           }}
         >
-          <MapPin size={30} />
+          <MapPin size={30} strokeWidth={1} />
         </Box>
 
         {!ultima && (
