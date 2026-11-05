@@ -10,19 +10,17 @@ import { PrismaService } from '../prisma/prisma.service';
 import { CriarPedidoDto } from './dto/criar-pedido.dto';
 import { ListarPedidosQueryDto } from './dto/listar-pedidos-query.dto';
 
-// 32 caracteres, sem I, O, 0 e 1 (evita confusão ao ler ou ditar o código)
-const ALFABETO = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+const ALFABETO = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
 const MAX_TENTATIVAS = 5;
 
 @Injectable()
 export class PedidosService {
   constructor(private readonly prisma: PrismaService) {}
 
-  // ---------- CADASTRAR ----------
+  //  CADASTRAR 
   async criar(dto: CriarPedidoDto, usuarioId: number) {
     await this.garantirUsuarioAtivo(usuarioId);
 
-    // O pedido já nasce na primeira etapa (menor "ordem"), se existir alguma
     const etapaInicial = await this.prisma.etapa.findFirst({
       orderBy: { ordem: 'asc' },
     });
@@ -45,7 +43,7 @@ export class PedidosService {
           include: { etapaAtual: true },
         });
       } catch (erro) {
-        if (this.isCodigoDuplicado(erro)) continue; // sorteia outro código
+        if (this.isCodigoDuplicado(erro)) continue; 
         throw erro;
       }
     }
@@ -55,7 +53,7 @@ export class PedidosService {
     );
   }
 
-  // ---------- LISTAR E PESQUISAR ----------
+  // LISTAR E PESQUISAR 
   async listar(query: ListarPedidosQueryDto, usuarioId: number) {
     await this.garantirUsuarioAtivo(usuarioId);
 
@@ -87,8 +85,7 @@ export class PedidosService {
     return { itens, total, page, limit, totalPaginas: Math.ceil(total / limit) };
   }
 
-  // ---------- CONSULTAR POR CÓDIGO ----------
-  // usuarioId é opcional: a consulta pública (cliente) não tem usuário logado
+  // CONSULTAR POR CÓDIGO
   async buscarPorCodigo(codigo: string, usuarioId?: number) {
     if (usuarioId !== undefined) {
       await this.garantirUsuarioAtivo(usuarioId);
@@ -108,20 +105,20 @@ export class PedidosService {
     return pedido;
   }
 
-  // ---------- AUXILIARES ----------
+  //AUXILIARES
   private gerarCodigo(): string {
     const bytes = randomBytes(6);
     let sufixo = '';
     for (const byte of bytes) {
       sufixo += ALFABETO[byte % ALFABETO.length];
     }
-    return `QD-${new Date().getFullYear()}-${sufixo}`; // ex.: QD-2026-K7M2XP
+    return `QD-${new Date().getFullYear()}-${sufixo}`; 
   }
 
   private isCodigoDuplicado(erro: unknown): boolean {
     return (
       erro instanceof Prisma.PrismaClientKnownRequestError &&
-      erro.code === 'P2002' // violação de campo único
+      erro.code === 'P2002' 
     );
   }
 
