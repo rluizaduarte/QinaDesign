@@ -45,6 +45,22 @@ model HistoricoEtapa {
   id         Int      @id @default(autoincrement())
   pedidoId   Int
   etapaId    Int
+  dataHora   DateTime @default(now())
+  observacao String?
+
+  pedido Pedido @relation(fields: [pedidoId], references: [id], onDelete: Cascade)
+  etapa  Etapa  @relation(fields: [etapaId], references: [id])
+}
+
+model UsuarioAdministrativo {
+  id           Int      @id @default(autoincrement())
+  nome         String
+  email        String   @unique
+  senhaHash    String
+  criadoEm     DateTime @default(now())
+  atualizadoEm DateTime @updatedAt
+
+  @@map("usuarios_administrativos")
   usuarioId  Int?
   dataHora   DateTime @default(now())
   observacao String?
