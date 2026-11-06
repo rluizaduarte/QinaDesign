@@ -2,7 +2,6 @@
 
 import { useRouter } from "next/navigation";
 import { useState } from "react";
-import { useRouter } from "next/navigation";
 import IconButton from "@mui/material/IconButton";
 import InputBase from "@mui/material/InputBase";
 import Box from "@mui/material/Box";
@@ -66,13 +65,16 @@ export default function SearchForm({ children, defaultValue = "" }) {
               flex: 1,
               minWidth: 0,
               color: "inherit",
-              // 16px no celular evita o zoom automático do iOS ao focar o campo
               fontSize: { xs: "16px", md: "0.9rem" },
               fontWeight: 500,
               letterSpacing: "0.02em",
-              "& input::placeholder": { color: "secondary.main", opacity: 1 },
+              "& input::placeholder": {
+                color: "secondary.main",
+                opacity: 1,
+              },
             }}
           />
+
           <IconButton
             type="submit"
             aria-label="Buscar pedido"
@@ -84,33 +86,8 @@ export default function SearchForm({ children, defaultValue = "" }) {
               "&:hover": { bgcolor: "transparent" },
             }}
           >
-            <InputBase
-              value={value}
-              onChange={handleChange}
-              placeholder="Digite o código do pedido"
-              inputProps={{ "aria-label": "Código do pedido" }}
-              sx={{
-                flex: 1,
-                color: "inherit",
-                fontSize: "0.9rem",
-                fontWeight: 500,
-                letterSpacing: "0.02em",
-                "& input::placeholder": { color: "secondary.main", opacity: 1 },
-              }}
-            />
-            <IconButton
-              type="submit"
-              aria-label="Buscar pedido"
-              disableRipple
-              sx={{
-                p: 0,
-                color: "inherit",
-                "&:hover": { bgcolor: "transparent" },
-              }}
-            >
-              <Search size={24} />
-            </IconButton>
-          </Box>
+            <Search size={24} />
+          </IconButton>
         </Box>
       </Box>
 
