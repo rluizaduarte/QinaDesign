@@ -1,6 +1,6 @@
 generator client {
   provider = "prisma-client"
-  output   = "../generated/prisma"
+  output   = "../src/generated/prisma"
 }
 
 datasource db {
@@ -12,6 +12,11 @@ enum SituacaoPedido {
   FINALIZADO
 }
 
+enum PerfilUsuario {
+  ADMINISTRADOR
+  FUNCIONARIO
+}
+
 model Pedido {
   id                    Int              @id @default(autoincrement())
   codigo                String           @unique
@@ -21,6 +26,8 @@ model Pedido {
   situacao              SituacaoPedido   @default(EM_ANDAMENTO)
   etapaAtualId          Int?
   etapaAtual            Etapa?           @relation("EtapaAtualPedido", fields: [etapaAtualId], references: [id])
+  criadoPorId           Int?
+  criadoPor             Usuario?         @relation("PedidoCriadoPor", fields: [criadoPorId], references: [id])
   historicos            HistoricoEtapa[]
   dataUltimaAtualizacao DateTime         @updatedAt
   criadoEm              DateTime         @default(now())
@@ -54,4 +61,28 @@ model UsuarioAdministrativo {
   atualizadoEm DateTime @updatedAt
 
   @@map("usuarios_administrativos")
+  usuarioId  Int?
+  dataHora   DateTime @default(now())
+  observacao String?
+
+  pedido  Pedido   @relation(fields: [pedidoId], references: [id], onDelete: Cascade)
+  etapa   Etapa    @relation(fields: [etapaId], references: [id])
+  usuario Usuario? @relation(fields: [usuarioId], references: [id])
+}
+
+model Usuario {
+  id             Int              @id @default(autoincrement())
+  nome           String
+  email          String           @unique
+  senhaHash      String
+  perfil         PerfilUsuario
+  cargo          String?
+  telefone       String?
+  ativo          Boolean          @default(true)
+  criadoEm       DateTime         @default(now())
+  atualizadoEm   DateTime         @updatedAt
+  pedidosCriados Pedido[]         @relation("PedidoCriadoPor")
+  historicos     HistoricoEtapa[]
+
+  @@map("usuarios")
 }

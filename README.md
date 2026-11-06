@@ -5,13 +5,13 @@ Projeto integrador com a empresa Qina Design. Sistema para atualização e geren
 
 | Camada | Tecnologia |
 | --- | --- |
-| Front-end | React, Vite, TypeScript |
+| Front-end | React, Next,js, JavaScript |
 | Back-end | Node.js, NestJS, TypeScript |
 | Banco de dados | PostgreSQL |
 | ORM | Prisma |
 | Autenticação | JWT |
 | Hospedagem do front-end | Vercel |
-| Hospedagem do back-end e do banco | ? |
+| Hospedagem do back-end e do banco | Back4App |
 
 ## Estrutura do repositório
 
