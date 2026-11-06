@@ -22,7 +22,7 @@ export default function Page() {
         </SectionTitle>
 
         <SearchForm>
-          <GhostButton href="#">Sou da equipe Qina</GhostButton>
+          <GhostButton href="/login">Sou da equipe Qina</GhostButton>
         </SearchForm>
       </Container>
     </Box>
