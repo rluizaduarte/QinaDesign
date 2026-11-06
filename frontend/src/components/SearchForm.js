@@ -27,22 +27,16 @@ export default function SearchForm({ children, defaultValue = "" }) {
         alignItems: "center",
         flexWrap: "wrap",
         gap: { xs: 1.5, md: 2 },
-        "& form:hover + div, & form:focus-within + div": hidden,
       }}
     >
       {/* espaço reservado de 265px: o form cresce por cima dele sem empurrar o botão */}
       <Box
         sx={{
-          // No celular o campo ocupa a linha inteira; a partir de md mantém a
-          // largura original, que expande ao receber foco/hover.
-          width: { xs: "100%", md: value ? 550 : 265 },
-          maxWidth: "100%",
-          bgcolor: "primary.dark",
-          color: "secondary.main",
-          borderRadius: "4px",
-          overflow: "hidden",
-          transition: { md: "width 0.3s cubic-bezier(0.16, 1, 0.3, 1)" },
-          "&:hover, &:focus-within": { width: { md: 550 } },
+          position: "relative",
+          zIndex: 1,
+          width: { xs: "100%", md: 265 },
+          flexShrink: 0,
+          "&:hover + div, &:focus-within + div": hidden,
         }}
       >
         <Box
@@ -54,6 +48,13 @@ export default function SearchForm({ children, defaultValue = "" }) {
             gap: 1,
             height: 49,
             px: { xs: 1.5, md: 2 },
+            width: { xs: "100%", md: value ? 550 : 265 },
+            bgcolor: "primary.dark",
+            color: "secondary.main",
+            borderRadius: "4px",
+            overflow: "hidden",
+            transition: { md: "width 0.3s cubic-bezier(0.16, 1, 0.3, 1)" },
+            "&:hover, &:focus-within": { width: { md: 550 } },
           }}
         >
           <InputBase
