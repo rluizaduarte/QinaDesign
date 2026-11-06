@@ -5,12 +5,14 @@ import Box from "@mui/material/Box";
 import { alpha } from "@mui/material/styles";
 import { Loader } from "lucide-react";
 
+const TAMANHO = { xs: 46, md: 60 };
+
 export default function EtapaPendente({ nome, ultima }) {
   return (
-    <Box sx={{ display: "flex", gap: 2 }}>
+    <Box sx={{ display: "flex", gap: { xs: 1.5, md: 2 } }}>
       <Box
         sx={{
-          width: 70,
+          width: TAMANHO,
           flexShrink: 0,
           display: "flex",
           flexDirection: "column",
@@ -20,8 +22,8 @@ export default function EtapaPendente({ nome, ultima }) {
         <Box
           sx={{
             position: "relative",
-            width: 60,
-            height: 60,
+            width: TAMANHO,
+            height: TAMANHO,
             flexShrink: 0,
             display: "flex",
             alignItems: "center",
@@ -69,10 +71,10 @@ export default function EtapaPendente({ nome, ultima }) {
       <Typography
         sx={{
           alignSelf: "flex-start",
-          minHeight: 60,
+          minHeight: TAMANHO,
           display: "flex",
           alignItems: "center",
-          fontSize: 15,
+          fontSize: { xs: 14, md: 15 },
           fontWeight: 900,
           color: (theme) => alpha(theme.palette.text.primary, 0.5),
         }}

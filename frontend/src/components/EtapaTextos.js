@@ -9,18 +9,29 @@ export default function EtapaTextos({ nome, data, comentario, altura = 60 }) {
       sx={{
         alignSelf: "flex-start",
         minHeight: altura,
+        minWidth: 0,
         display: "flex",
         flexDirection: "column",
         justifyContent: "center",
       }}
     >
-      <Typography sx={{ fontSize: 15, fontWeight: 900, color: "primary.dark" }}>
+      <Typography
+        sx={{
+          fontSize: { xs: 14, md: 15 },
+          fontWeight: 900,
+          color: "primary.dark",
+        }}
+      >
         {nome}
       </Typography>
 
       {data && (
         <Typography
-          sx={{ fontSize: 13, fontWeight: 300, color: "primary.dark" }}
+          sx={{
+            fontSize: { xs: 12, md: 13 },
+            fontWeight: 300,
+            color: "primary.dark",
+          }}
         >
           {data}
         </Typography>
@@ -38,7 +49,7 @@ export default function EtapaTextos({ nome, data, comentario, altura = 60 }) {
             cursor: "pointer",
             textAlign: "left",
             textDecoration: "underline",
-            fontSize: 13,
+            fontSize: { xs: 12, md: 13 },
             fontWeight: 300,
             color: "primary.dark",
           }}

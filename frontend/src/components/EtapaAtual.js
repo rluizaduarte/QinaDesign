@@ -5,12 +5,16 @@ import EtapaTextos from "./EtapaTextos";
 import { MapPin } from "lucide-react";
 import { alpha } from "@mui/material/styles";
 
+// Círculo maior que os demais (etapa em andamento). No celular reduz para
+// caber ao lado do texto em telas estreitas.
+const TAMANHO = { xs: 52, md: 70 };
+
 export default function EtapaAtual({ nome, data, comentario, ultima }) {
   return (
-    <Box sx={{ display: "flex", gap: 2 }}>
+    <Box sx={{ display: "flex", gap: { xs: 1.5, md: 2 } }}>
       <Box
         sx={{
-          width: 70,
+          width: TAMANHO,
           flexShrink: 0,
           display: "flex",
           flexDirection: "column",
@@ -19,8 +23,8 @@ export default function EtapaAtual({ nome, data, comentario, ultima }) {
       >
         <Box
           sx={{
-            width: 70,
-            height: 70,
+            width: TAMANHO,
+            height: TAMANHO,
             flexShrink: 0,
             display: "flex",
             alignItems: "center",
@@ -49,7 +53,7 @@ export default function EtapaAtual({ nome, data, comentario, ultima }) {
         nome={nome}
         data={data}
         comentario={comentario}
-        altura={70}
+        altura={TAMANHO}
       />
     </Box>
   );
