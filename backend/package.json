@@ -7,7 +7,8 @@
   "license": "UNLICENSED",
   "scripts": {
     "build": "nest build",
-    "db:seed": "prisma db seed",
+    "db:seed": "prisma db seed", 
+    "db:seed:demo": "tsx prisma/seed-demo.ts",
     "deploy": "nest deploy",
     "format": "prettier --write \"src/**/*.ts\" \"test/**/*.ts\"",
     "start": "nest start",
