@@ -16,7 +16,8 @@ import {
 const MENSAGENS = {
   naoEncontrado:
     "Não encontramos nenhum pedido com esse código. Confira os números e tente novamente.",
-  servico: "Não foi possível carregar o pedido agora. Tente novamente em instantes.",
+  servico:
+    "Não foi possível carregar o pedido agora. Tente novamente em instantes.",
   conexao:
     "Não conseguimos falar com o servidor do pedido. Verifique a conexão e tente novamente.",
 };
@@ -27,7 +28,10 @@ export default async function Page({ params }) {
 
   if (!pedido) {
     return (
-      <Box component="section" sx={{ pt: { xs: 10, md: 12 }, pb: { xs: 6, md: 8 } }}>
+      <Box
+        component="section"
+        sx={{ pt: { xs: 10, md: 12 }, pb: { xs: 6, md: 8 } }}
+      >
         <Container>
           <SearchForm defaultValue={codigo} />
 
@@ -37,7 +41,11 @@ export default async function Page({ params }) {
               #{codigo}
             </SectionTitle>
             <Typography
-              sx={{ fontSize: { xs: 14, md: 15 }, fontWeight: 300, color: "primary.dark" }}
+              sx={{
+                fontSize: { xs: 14, md: 15 },
+                fontWeight: 300,
+                color: "primary.dark",
+              }}
             >
               {MENSAGENS[erro] ?? MENSAGENS.servico}
             </Typography>
@@ -50,7 +58,10 @@ export default async function Page({ params }) {
   const criadoEm = formatarCriadoEm(pedido.criadoEm);
 
   return (
-    <Box component="section" sx={{ pt: { xs: 10, md: 12 }, pb: { xs: 6, md: 8 } }}>
+    <Box
+      component="section"
+      sx={{ pt: { xs: 10, md: 12 }, pb: { xs: 6, md: 8 } }}
+    >
       <Container>
         <Box sx={{ maxWidth: 600 }}>
           <SearchForm defaultValue={pedido.codigo} />
@@ -96,7 +107,13 @@ export default async function Page({ params }) {
               if (etapa.status === "ATUAL") {
                 return <EtapaAtual key={etapa.ordem} {...props} />;
               }
-              return <EtapaPendente key={etapa.ordem} nome={etapa.nome} ultima={ultima} />;
+              return (
+                <EtapaPendente
+                  key={etapa.ordem}
+                  nome={etapa.nome}
+                  ultima={ultima}
+                />
+              );
             })}
           </Box>
         </Box>

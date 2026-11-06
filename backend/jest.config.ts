@@ -17,7 +17,12 @@ const config: Config = {
   transform: {
     '^.+\\.(t|j)s$': 'ts-jest',
   },
-  moduleNameMapper: pathsToModuleNameMapper(paths, { prefix: '<rootDir>/' }),
+  moduleNameMapper: {
+    ...pathsToModuleNameMapper(paths, { prefix: '<rootDir>/' }),
+    // O client gerado pelo Prisma importa './arquivo.js', mas o arquivo no
+    // disco é .ts. Esta regra remove o ".js" para o Jest achar o .ts.
+    '^(\\.{1,2}/.*)\\.js$': '$1',
+  },
   collectCoverageFrom: [
     'src/**/*.(t|j)s',
     'libs/**/*.(t|j)s',

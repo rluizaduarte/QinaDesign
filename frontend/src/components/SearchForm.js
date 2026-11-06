@@ -1,5 +1,6 @@
 "use client";
 
+import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import IconButton from "@mui/material/IconButton";
@@ -30,9 +31,8 @@ export default function SearchForm({ children, defaultValue = "" }) {
         "& form:hover + div, & form:focus-within + div": hidden,
       }}
     >
+      {/* espaço reservado de 265px: o form cresce por cima dele sem empurrar o botão */}
       <Box
-        component="form"
-        onSubmit={handleSubmit}
         sx={{
           // No celular o campo ocupa a linha inteira; a partir de md mantém a
           // largura original, que expande ao receber foco/hover.
@@ -47,6 +47,8 @@ export default function SearchForm({ children, defaultValue = "" }) {
         }}
       >
         <Box
+          component="form"
+          onSubmit={handleSubmit}
           sx={{
             display: "flex",
             alignItems: "center",
@@ -82,8 +84,33 @@ export default function SearchForm({ children, defaultValue = "" }) {
               "&:hover": { bgcolor: "transparent" },
             }}
           >
-            <Search size={24} />
-          </IconButton>
+            <InputBase
+              value={value}
+              onChange={handleChange}
+              placeholder="Digite o código do pedido"
+              inputProps={{ "aria-label": "Código do pedido" }}
+              sx={{
+                flex: 1,
+                color: "inherit",
+                fontSize: "0.9rem",
+                fontWeight: 500,
+                letterSpacing: "0.02em",
+                "& input::placeholder": { color: "secondary.main", opacity: 1 },
+              }}
+            />
+            <IconButton
+              type="submit"
+              aria-label="Buscar pedido"
+              disableRipple
+              sx={{
+                p: 0,
+                color: "inherit",
+                "&:hover": { bgcolor: "transparent" },
+              }}
+            >
+              <Search size={24} />
+            </IconButton>
+          </Box>
         </Box>
       </Box>
 

@@ -61,7 +61,11 @@ const PEDIDOS: PedidoSeed[] = [
         observacao: 'Medidas conferidas no local com o cliente.',
       },
       { etapa: 'Elaboração do projeto executivo', diasAtras: 6, hora: '10:00' },
-      { etapa: 'Aprovação/revisão do projeto executivo', diasAtras: 5, hora: '12:00' },
+      {
+        etapa: 'Aprovação/revisão do projeto executivo',
+        diasAtras: 5,
+        hora: '12:00',
+      },
       { etapa: 'Revisão pré-efetivação', diasAtras: 4, hora: '12:00' },
       { etapa: 'Efetivação do serviço', diasAtras: 3, hora: '15:00' },
       { etapa: 'Compra de material', diasAtras: 3, hora: '18:00' },
@@ -136,9 +140,11 @@ async function main() {
       );
     }
 
-    const { rows: etapas } = await client.query<{ id: number; nome: string; ordem: number }>(
-      'SELECT "id", "nome", "ordem" FROM "Etapa"',
-    );
+    const { rows: etapas } = await client.query<{
+      id: number;
+      nome: string;
+      ordem: number;
+    }>('SELECT "id", "nome", "ordem" FROM "Etapa"');
     const porNome = new Map(etapas.map((etapa) => [etapa.nome, etapa]));
 
     // 2) Pedidos de teste
@@ -153,7 +159,9 @@ async function main() {
       for (const item of pedido.historicos) {
         const etapa = porNome.get(item.etapa);
         if (!etapa) {
-          throw new Error(`Etapa "${item.etapa}" não existe (pedido ${pedido.codigo}).`);
+          throw new Error(
+            `Etapa "${item.etapa}" não existe (pedido ${pedido.codigo}).`,
+          );
         }
         if (etapa.ordem > etapaAtual.ordem) {
           throw new Error(
@@ -204,7 +212,9 @@ async function main() {
     await client.query('COMMIT');
 
     const codigos = PEDIDOS.map((pedido) => `#${pedido.codigo}`).join(', ');
-    console.log(`Seed concluído: ${ETAPAS.length} etapas e ${PEDIDOS.length} pedido(s): ${codigos}.`);
+    console.log(
+      `Seed concluído: ${ETAPAS.length} etapas e ${PEDIDOS.length} pedido(s): ${codigos}.`,
+    );
   } catch (erro) {
     await client.query('ROLLBACK');
     throw erro;
@@ -217,3 +227,66 @@ main().catch((erro) => {
   console.error(erro);
   process.exit(1);
 });
+import 'dotenv/config';
+import { PrismaClient } from '../src/generated/prisma/client';
+import { PrismaPg } from '@prisma/adapter-pg';
+import * as bcrypt from 'bcrypt';
+
+const adapter = new PrismaPg({ connectionString: process.env.DATABASE_URL });
+const prisma = new PrismaClient({ adapter });
+
+const etapas = [
+  'Visita técnica',
+  'Elaboração do projeto executivo',
+  'Aprovação/revisão do projeto executivo',
+  'Revisão pré-efetivação',
+  'Efetivação do serviço',
+  'Compra de material',
+  'Recebimento de material',
+  'Fila de produção',
+  'Usinagem',
+  'Separação de peças 1',
+  'Fitamento',
+  'Separação de peças 2',
+  'Fila de pré montagem',
+  'Pré montagem',
+  'Embalagem',
+  'Expedição',
+  'Montagem',
+  'Finalização',
+];
+
+async function main() {
+  if (etapas.length !== 18) {
+    throw new Error(`Esperado 18 etapas, mas foram definidas ${etapas.length}`);
+  }
+
+  for (let i = 0; i < etapas.length; i++) {
+    await prisma.etapa.upsert({
+      where: { ordem: i + 1 },
+      update: { nome: etapas[i] },
+      create: { nome: etapas[i], ordem: i + 1 },
+    });
+  }
+
+  const senhaCriptografada = await bcrypt.hash('Admin@123', 10);
+  await prisma.usuario.upsert({
+    where: { email: 'admin@teste.com' },
+    update: {},
+    create: {
+      nome: 'Administrador',
+      email: 'admin@teste.com',
+      senhaHash: senhaCriptografada,
+      perfil: 'ADMINISTRADOR',
+      ativo: true,
+    },
+  });
+
+  console.log('Seed concluído!');
+}
+main()
+  .catch((e) => {
+    console.error(e);
+    process.exit(1);
+  })
+  .finally(() => prisma.$disconnect());
