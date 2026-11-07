@@ -1,28 +1,6 @@
 import 'dotenv/config';
 import { Client } from 'pg';
 
-// Etapas fixas do fluxo de produção da Qina.
-// O campo "nome" é único no banco, por isso não há nomes repetidos aqui.
-const ETAPAS = [
-  'Visita técnica',
-  'Elaboração do projeto executivo',
-  'Aprovação/revisão do projeto executivo',
-  'Revisão pré-efetivação',
-  'Efetivação do serviço',
-  'Compra de material',
-  'Recebimento de material',
-  'Fila de produção',
-  'Usinagem',
-  'Separação de peças',
-  'Fitamento',
-  'Fila de pré-montagem',
-  'Pré-montagem',
-  'Embalagem',
-  'Expedição',
-  'Montagem',
-  'Finalização',
-];
-
 type HistoricoSeed = {
   etapa: string;
   diasAtras: number;
@@ -34,13 +12,12 @@ type PedidoSeed = {
   codigo: string;
   nomeCliente: string;
   titulo: string;
-  // Nome da etapa em andamento (precisa ser um dos nomes de ETAPAS)
+  // Nome da etapa em andamento (precisa ser um nome de etapa do seed oficial, prisma/seed.ts)
   etapaAtual: string;
   inicioDiasAtras: number;
   // Etapas já concluídas: data + observação opcional
   historicos: HistoricoSeed[];
 };
-
 // ---------------------------------------------------------------------------
 // PEDIDOS DE TESTE
 // Para liberar outro acesso na plataforma, basta acrescentar um objeto aqui
@@ -51,7 +28,7 @@ const PEDIDOS: PedidoSeed[] = [
     codigo: '123456',
     nomeCliente: 'Cliente Demonstração',
     titulo: 'Armário planejado - sala de estar',
-    etapaAtual: 'Usinagem',
+    etapaAtual: 'Usinagem',   //precisa ser um nome de etapa do seed oficial
     inicioDiasAtras: 7,
     historicos: [
       {
@@ -131,28 +108,24 @@ async function main() {
   try {
     await client.query('BEGIN');
 
-    // 1) Etapas do fluxo
-    for (const [index, nome] of ETAPAS.entries()) {
-      await client.query(
-        'INSERT INTO "Etapa" ("nome", "ordem") VALUES ($1, $2) ' +
-          'ON CONFLICT ("nome") DO UPDATE SET "ordem" = EXCLUDED."ordem"',
-        [nome, index + 1],
-      );
-    }
-
     const { rows: etapas } = await client.query<{
-      id: number;
-      nome: string;
-      ordem: number;
+    id: number;
+    nome: string;
+    ordem: number;
     }>('SELECT "id", "nome", "ordem" FROM "Etapa"');
+
+    if (etapas.length === 0) {
+      throw new Error('Nenhuma etapa encontrada. Rode antes: npm run db:seed');
+    }
     const porNome = new Map(etapas.map((etapa) => [etapa.nome, etapa]));
+
 
     // 2) Pedidos de teste
     for (const pedido of PEDIDOS) {
       const etapaAtual = porNome.get(pedido.etapaAtual);
       if (!etapaAtual) {
         throw new Error(
-          `Etapa "${pedido.etapaAtual}" não existe. Use um nome da lista ETAPAS.`,
+          `Etapa "${pedido.etapaAtual}" não existe. Use um nome do seed oficial (prisma/seed.ts).`,      
         );
       }
 
@@ -213,7 +186,7 @@ async function main() {
 
     const codigos = PEDIDOS.map((pedido) => `#${pedido.codigo}`).join(', ');
     console.log(
-      `Seed concluído: ${ETAPAS.length} etapas e ${PEDIDOS.length} pedido(s): ${codigos}.`,
+      `Seed demo concluído: ${PEDIDOS.length} pedido(s): ${codigos}.`,
     );
   } catch (erro) {
     await client.query('ROLLBACK');
@@ -227,66 +200,3 @@ main().catch((erro) => {
   console.error(erro);
   process.exit(1);
 });
-import 'dotenv/config';
-import { PrismaClient } from '../src/generated/prisma/client';
-import { PrismaPg } from '@prisma/adapter-pg';
-import * as bcrypt from 'bcrypt';
-
-const adapter = new PrismaPg({ connectionString: process.env.DATABASE_URL });
-const prisma = new PrismaClient({ adapter });
-
-const etapas = [
-  'Visita técnica',
-  'Elaboração do projeto executivo',
-  'Aprovação/revisão do projeto executivo',
-  'Revisão pré-efetivação',
-  'Efetivação do serviço',
-  'Compra de material',
-  'Recebimento de material',
-  'Fila de produção',
-  'Usinagem',
-  'Separação de peças 1',
-  'Fitamento',
-  'Separação de peças 2',
-  'Fila de pré montagem',
-  'Pré montagem',
-  'Embalagem',
-  'Expedição',
-  'Montagem',
-  'Finalização',
-];
-
-async function main() {
-  if (etapas.length !== 18) {
-    throw new Error(`Esperado 18 etapas, mas foram definidas ${etapas.length}`);
-  }
-
-  for (let i = 0; i < etapas.length; i++) {
-    await prisma.etapa.upsert({
-      where: { ordem: i + 1 },
-      update: { nome: etapas[i] },
-      create: { nome: etapas[i], ordem: i + 1 },
-    });
-  }
-
-  const senhaCriptografada = await bcrypt.hash('Admin@123', 10);
-  await prisma.usuario.upsert({
-    where: { email: 'admin@teste.com' },
-    update: {},
-    create: {
-      nome: 'Administrador',
-      email: 'admin@teste.com',
-      senhaHash: senhaCriptografada,
-      perfil: 'ADMINISTRADOR',
-      ativo: true,
-    },
-  });
-
-  console.log('Seed concluído!');
-}
-main()
-  .catch((e) => {
-    console.error(e);
-    process.exit(1);
-  })
-  .finally(() => prisma.$disconnect());
