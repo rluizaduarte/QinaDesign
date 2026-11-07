@@ -1,4 +1,3 @@
-export type StatusEtapa = 'CONCLUIDA' | 'ATUAL' | 'PENDENTE';
 import {
   ForbiddenException,
   Injectable,
@@ -10,6 +9,9 @@ import { Prisma } from '../generated/prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { CriarPedidoDto } from './dto/criar-pedido.dto';
 import { ListarPedidosQueryDto } from './dto/listar-pedidos-query.dto';
+
+export type StatusEtapa = 'CONCLUIDA' | 'ATUAL' | 'PENDENTE';
+
 
 const ALFABETO = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
 const MAX_TENTATIVAS = 5;
@@ -144,11 +146,6 @@ export class PedidosService {
         };
       }),
     };
-  }
-}
-      throw new NotFoundException('Pedido não encontrado');
-    }
-    return pedido;
   }
 
   //AUXILIARES
