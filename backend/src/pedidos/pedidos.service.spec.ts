@@ -14,7 +14,7 @@ describe('PedidosService', () => {
   // Prisma falso: cada função é um "espião" que devolve o que combinarmos
   const prismaMock = {
     usuario: { findUnique: jest.fn() },
-    etapa: { findFirst: jest.fn() },
+    etapa: { findFirst: jest.fn(), findMany: jest.fn() },
     pedido: {
       create: jest.fn(),
       findMany: jest.fn(),
@@ -42,6 +42,7 @@ describe('PedidosService', () => {
 
   beforeEach(async () => {
     jest.resetAllMocks(); // cada teste começa do zero
+    prismaMock.etapa.findMany.mockResolvedValue([]); // lista de etapas vazia por padrão
     const modulo = await Test.createTestingModule({
       providers: [
         PedidosService,
