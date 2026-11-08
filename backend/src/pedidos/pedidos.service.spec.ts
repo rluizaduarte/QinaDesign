@@ -79,6 +79,18 @@ describe('PedidosService', () => {
       expect(pedido.codigo).toMatch(/^QD-\d{4}-[A-Z0-9]{6}$/);
       expect(pedido.criadoPorId).toBe(1);
       expect(pedido.etapaAtualId).toBe(10);
+      expect(prismaMock.pedido.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            historicos: {
+              create: {
+                etapaId: 10,
+                usuarioId: 1,
+              },
+            },
+          }),
+        }),
+      );
     });
 
     // Requisito: impedir códigos repetidos (a parte da nova tentativa)
@@ -107,15 +119,16 @@ describe('PedidosService', () => {
       expect(prismaMock.pedido.create).toHaveBeenCalledTimes(5);
     });
 
-    // Documenta o comportamento atual quando não há etapas no banco
-    it('cria o pedido sem etapa quando não existe nenhuma etapa', async () => {
+    // Impede cadastrar pedidos sem uma etapa inicial
+    it('não cria pedido quando não existem etapas cadastradas', async () => {
       usuarioAtivo();
       prismaMock.etapa.findFirst.mockResolvedValue(null);
-      prismaMock.pedido.create.mockImplementation(({ data }) => data);
 
-      const pedido = await service.criar(dto, 1);
+      await expect(service.criar(dto, 1)).rejects.toThrow(
+        'Não há etapas cadastradas para iniciar o pedido',
+      );
 
-      expect(pedido).not.toHaveProperty('etapaAtualId');
+      expect(prismaMock.pedido.create).not.toHaveBeenCalled();
     });
   });
 
