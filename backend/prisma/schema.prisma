@@ -18,40 +18,55 @@ enum PerfilUsuario {
 }
 
 model Pedido {
-  id                    Int              @id @default(autoincrement())
-  codigo                String           @unique
+  id                    Int               @id @default(autoincrement())
+  codigo                String            @unique
   nomeCliente           String
   titulo                String
   dataInicio            DateTime
-  situacao              SituacaoPedido   @default(EM_ANDAMENTO)
+  situacao              SituacaoPedido    @default(EM_ANDAMENTO)
   etapaAtualId          Int?
-  etapaAtual            Etapa?           @relation("EtapaAtualPedido", fields: [etapaAtualId], references: [id])
+  etapaAtual            Etapa?            @relation("EtapaAtualPedido", fields: [etapaAtualId], references: [id])
   criadoPorId           Int?
-  criadoPor             Usuario?         @relation("PedidoCriadoPor", fields: [criadoPorId], references: [id])
+  criadoPor             Usuario?          @relation("PedidoCriadoPor", fields: [criadoPorId], references: [id])
   historicos            HistoricoEtapa[]
-  dataUltimaAtualizacao DateTime         @updatedAt
-  criadoEm              DateTime         @default(now())
+  observacoesEtapas     ObservacaoEtapa[]
+  dataUltimaAtualizacao DateTime          @updatedAt
+  criadoEm              DateTime          @default(now())
 }
 
 model Etapa {
-  id            Int              @id @default(autoincrement())
-  nome          String           @unique
-  ordem         Int              @unique
-  pedidosAtuais Pedido[]         @relation("EtapaAtualPedido")
-  historicos    HistoricoEtapa[]
+  id                Int               @id @default(autoincrement())
+  nome              String            @unique
+  ordem             Int               @unique
+  pedidosAtuais     Pedido[]          @relation("EtapaAtualPedido")
+  historicos        HistoricoEtapa[]
+  observacoesEtapas ObservacaoEtapa[]
 }
 
 model HistoricoEtapa {
-  id         Int      @id @default(autoincrement())
-  pedidoId   Int
-  etapaId    Int
-  usuarioId  Int?
-  dataHora   DateTime @default(now())
-  observacao String?
+  id        Int      @id @default(autoincrement())
+  pedidoId  Int
+  etapaId   Int
+  usuarioId Int?
+  dataHora  DateTime @default(now())
 
   pedido  Pedido   @relation(fields: [pedidoId], references: [id], onDelete: Cascade)
   etapa   Etapa    @relation(fields: [etapaId], references: [id])
   usuario Usuario? @relation(fields: [usuarioId], references: [id])
+}
+
+model ObservacaoEtapa {
+  id           Int      @id @default(autoincrement())
+  pedidoId     Int
+  etapaId      Int
+  observacao   String
+  criadoEm     DateTime @default(now())
+  atualizadoEm DateTime @updatedAt
+
+  pedido Pedido @relation(fields: [pedidoId], references: [id], onDelete: Cascade)
+  etapa  Etapa  @relation(fields: [etapaId], references: [id])
+
+  @@unique([pedidoId, etapaId])
 }
 
 model Usuario {
