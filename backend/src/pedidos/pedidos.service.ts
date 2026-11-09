@@ -28,6 +28,12 @@ export class PedidosService {
       orderBy: { ordem: 'asc' },
     });
 
+  if (!etapaInicial) {
+    throw new InternalServerErrorException(
+      'Não há etapas cadastradas para iniciar o pedido',
+     );
+}
+
     for (let tentativa = 0; tentativa < MAX_TENTATIVAS; tentativa++) {
       const codigo = this.gerarCodigo();
       try {
@@ -38,9 +44,14 @@ export class PedidosService {
             titulo: dto.titulo,
             dataInicio: new Date(dto.dataInicio),
             criadoPorId: usuarioId,
-            ...(etapaInicial && {
+            ...(etapaInicial &&{
               etapaAtualId: etapaInicial.id,
-              historicos: { create: { etapaId: etapaInicial.id } },
+              historicos:{
+                create:{
+                  etapaId: etapaInicial.id,
+                  usuarioId,
+                }
+              }
             }),
           },
           include: { etapaAtual: true },
