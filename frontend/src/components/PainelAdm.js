@@ -1,23 +1,24 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Box from "@mui/material/Box";
-import Button from "@mui/material/Button";
 import InputBase from "@mui/material/InputBase";
 import { alpha } from "@mui/material/styles";
-import { ChevronDown, Plus, Search } from "lucide-react";
+import { ChevronDown, Search } from "lucide-react";
 import CartaoResumo from "./CartaoResumo";
 import FormularioNovoPedido from "./FormularioNovoPedido";
-import SidebarFiltros from "./SidebarFiltros";
+import SidebarAdm from "./SidebarAdm";
 import TabelaPedidos from "./TabelaPedidos";
 import {
   PEDIDOS_ADM,
+  carregarPedidosAdm,
+  criarPedidoAdm,
   etapasDe,
-  formatarAtualizacaoAgora,
-  proximoCodigo,
 } from "../lib/pedidosAdm";
 
 const ALTURA_CAMPO = 57;
+
+const FILTROS_VALIDOS = ["TODOS", "EM_ANDAMENTO", "FINALIZADO"];
 
 const TITULO_OCULTO = {
   position: "absolute",
@@ -35,6 +36,16 @@ export default function PainelAdm() {
   const [etapa, setEtapa] = useState("");
   const [busca, setBusca] = useState("");
   const [novoPedidoAberto, setNovoPedidoAberto] = useState(false);
+
+  useEffect(() => {
+    setListaPedidos(carregarPedidosAdm());
+
+    // O menu lateral da edição volta para a lista já com o filtro escolhido.
+    const filtroDaUrl = new URLSearchParams(window.location.search).get(
+      "filtro"
+    );
+    if (FILTROS_VALIDOS.includes(filtroDaUrl)) setFiltro(filtroDaUrl);
+  }, []);
 
   const etapas = useMemo(() => etapasDe(listaPedidos), [listaPedidos]);
 
@@ -64,18 +75,9 @@ export default function PainelAdm() {
     });
   }, [busca, etapa, filtro, listaPedidos]);
 
-  function cadastrarPedido({ nomeCliente, etapaAtual, dataInicio, observacao }) {
-    const novoPedido = {
-      codigo: proximoCodigo(listaPedidos),
-      nomeCliente,
-      etapaAtual,
-      situacao: "EM_ANDAMENTO",
-      atualizadoEm: formatarAtualizacaoAgora(),
-      dataInicio,
-      observacao: observacao || null,
-    };
+  function cadastrarPedido(dados) {
+    setListaPedidos(criarPedidoAdm(dados));
 
-    setListaPedidos((atuais) => [novoPedido, ...atuais]);
     // Limpa os filtros para o pedido recém-cadastrado aparecer na lista.
     setFiltro("TODOS");
     setEtapa("");
@@ -97,7 +99,11 @@ export default function PainelAdm() {
         Painel administrativo
       </Box>
 
-      <SidebarFiltros filtro={filtro} onChange={setFiltro} />
+      <SidebarAdm
+        filtro={filtro}
+        onFiltro={setFiltro}
+        onNovoPedido={() => setNovoPedidoAberto(true)}
+      />
 
       <Box
         component="main"
@@ -108,36 +114,6 @@ export default function PainelAdm() {
           py: { xs: 4, md: 5 },
         }}
       >
-        <Box
-          sx={{
-            display: "flex",
-            justifyContent: "flex-end",
-            mb: { xs: 2, md: 2.5 },
-          }}
-        >
-          <Button
-            type="button"
-            variant="contained"
-            disableElevation
-            startIcon={<Plus size={18} strokeWidth={1.75} />}
-            onClick={() => setNovoPedidoAberto(true)}
-            sx={{
-              height: 44,
-              px: 2.5,
-              bgcolor: "primary.main",
-              color: "secondary.main",
-              borderRadius: "4px",
-              fontSize: "0.95rem",
-              fontWeight: 500,
-              textTransform: "none",
-              boxShadow: "none",
-              "&:hover": { bgcolor: "primary.dark", boxShadow: "none" },
-            }}
-          >
-            Novo pedido
-          </Button>
-        </Box>
-
         <Box
           sx={{
             display: "grid",

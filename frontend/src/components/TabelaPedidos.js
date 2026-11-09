@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import Box from "@mui/material/Box";
 import Button from "@mui/material/Button";
 import Typography from "@mui/material/Typography";
@@ -105,7 +106,8 @@ export default function TabelaPedidos({ pedidos }) {
 
               <Box component="td" sx={{ textAlign: "right" }}>
                 <Button
-                  type="button"
+                  component={Link}
+                  href={`/PaginaAdm/pedido/${encodeURIComponent(pedido.codigo)}`}
                   variant="contained"
                   disableElevation
                   aria-label={`Editar pedido ${pedido.codigo}`}

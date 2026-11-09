@@ -11,20 +11,10 @@ const FILTROS = [
   { valor: "FINALIZADO", rotulo: "Finalizados" },
 ];
 
-// Menu lateral fixo do painel. No celular ele vira uma faixa no topo.
+// Lista de filtros por situação, usada dentro do menu lateral do painel.
 export default function SidebarFiltros({ filtro, onChange }) {
   return (
-    <Box
-      component="aside"
-      sx={{
-        flexShrink: 0,
-        width: { xs: "100%", md: 400, lg: 450 },
-        bgcolor: "primary.dark",
-        color: "secondary.main",
-        px: { xs: 3, md: 4 },
-        py: { xs: 4, md: 6 },
-      }}
-    >
+    <Box component="nav" aria-label="Filtrar por etapa">
       <Typography
         component="h2"
         sx={{
