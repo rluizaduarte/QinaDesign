@@ -19,7 +19,9 @@ describe('AndamentoService', () => {
     },
     etapa: {
       findMany: jest.fn(),
+      findFirst: jest.fn(),
     },
+    observacaoEtapa: { upsert: jest.fn() },
     historicoEtapa: {
       create: jest.fn(),
     },
@@ -45,6 +47,165 @@ describe('AndamentoService', () => {
     }).compile();
 
     service = modulo.get(AndamentoService);
+  });
+
+  describe('atualizarObservacao', () => {
+    const dataAnterior = new Date('2026-11-08T12:00:00.000Z');
+    const pedido = {
+      id: 10,
+      etapaAtualId: 2,
+      situacao: 'EM_ANDAMENTO',
+      dataUltimaAtualizacao: dataAnterior,
+    };
+
+    beforeEach(() => {
+      txMock.usuario.findUnique.mockResolvedValue({ id: 1, ativo: true });
+      txMock.pedido.findUnique.mockResolvedValue({ ...pedido });
+      txMock.pedido.updateMany.mockResolvedValue({ count: 1 });
+    });
+
+    afterEach(() => {
+      expect(txMock.historicoEtapa.create).not.toHaveBeenCalled();
+      expect(txMock.pedido.findUniqueOrThrow).not.toHaveBeenCalled();
+    });
+
+    it('cria a observação somente da etapa atual e normaliza o texto', async () => {
+      const criada = { id: 100, pedidoId: 10, etapaId: 2, observacao: 'Medidas conferidas' };
+      txMock.observacaoEtapa.upsert.mockResolvedValue(criada);
+
+      await expect(service.atualizarObservacao(10, 1, '  Medidas conferidas  '))
+        .resolves.toEqual(criada);
+      expect(txMock.observacaoEtapa.upsert).toHaveBeenCalledWith({
+        where: { pedidoId_etapaId: { pedidoId: 10, etapaId: 2 } },
+        create: { pedidoId: 10, etapaId: 2, observacao: 'Medidas conferidas' },
+        update: { observacao: 'Medidas conferidas' },
+      });
+      expect(txMock.pedido.updateMany).toHaveBeenCalledWith({
+        where: {
+          id: 10, etapaAtualId: 2, situacao: 'EM_ANDAMENTO',
+          dataUltimaAtualizacao: dataAnterior,
+        },
+        data: { dataUltimaAtualizacao: expect.any(Date) },
+      });
+      const marcador = txMock.pedido.updateMany.mock.calls[0][0].data.dataUltimaAtualizacao;
+      expect(marcador.getTime()).toBeGreaterThan(dataAnterior.getTime());
+      expect(prismaMock.$transaction).toHaveBeenCalledTimes(1);
+      expect(txMock.pedido.updateMany.mock.invocationCallOrder[0])
+        .toBeLessThan(txMock.observacaoEtapa.upsert.mock.invocationCallOrder[0]);
+    });
+
+    it('substitui a observação existente sem duplicar a chave', async () => {
+      let armazenada = { id: 100, pedidoId: 10, etapaId: 2, observacao: 'Anterior' };
+      txMock.observacaoEtapa.upsert.mockImplementation(async ({ where, update }) => {
+        expect(where.pedidoId_etapaId).toEqual({ pedidoId: 10, etapaId: 2 });
+        armazenada = { ...armazenada, ...update };
+        return armazenada;
+      });
+      await expect(service.atualizarObservacao(10, 1, '  Revisada  '))
+        .resolves.toEqual({ id: 100, pedidoId: 10, etapaId: 2, observacao: 'Revisada' });
+      expect(txMock.observacaoEtapa.upsert).toHaveBeenCalledTimes(1);
+    });
+
+    it('avança o marcador mesmo quando o relógio coincide com a versão lida', async () => {
+      const relogio = jest.spyOn(Date, 'now').mockReturnValue(dataAnterior.getTime());
+      try {
+        await service.atualizarObservacao(10, 1, 'Texto');
+        expect(txMock.pedido.updateMany.mock.calls[0][0].data)
+          .toEqual({ dataUltimaAtualizacao: new Date(dataAnterior.getTime() + 1) });
+      } finally {
+        relogio.mockRestore();
+      }
+    });
+
+    it.each(['', '   ', '\n\t'])('rejeita texto vazio: %j', async (texto) => {
+      await expect(service.atualizarObservacao(10, 1, texto))
+        .rejects.toThrow('A observação não pode ser vazia');
+      expect(txMock.pedido.updateMany).not.toHaveBeenCalled();
+      expect(txMock.observacaoEtapa.upsert).not.toHaveBeenCalled();
+    });
+
+    it.each([
+      [null, 'Usuário não encontrado'],
+      [{ id: 1, ativo: false }, 'Usuário inativo não pode atualizar pedidos'],
+    ])('rejeita usuário inválido: %j', async (usuario, mensagem) => {
+      txMock.usuario.findUnique.mockResolvedValue(usuario);
+      await expect(service.atualizarObservacao(10, 1, 'Texto')).rejects.toThrow(mensagem as string);
+      expect(txMock.pedido.findUnique).not.toHaveBeenCalled();
+      expect(txMock.pedido.updateMany).not.toHaveBeenCalled();
+      expect(txMock.observacaoEtapa.upsert).not.toHaveBeenCalled();
+    });
+
+    it('rejeita pedido inexistente', async () => {
+      txMock.pedido.findUnique.mockResolvedValue(null);
+      await expect(service.atualizarObservacao(999, 1, 'Texto')).rejects.toThrow('Pedido não encontrado');
+      expect(txMock.pedido.updateMany).not.toHaveBeenCalled();
+      expect(txMock.observacaoEtapa.upsert).not.toHaveBeenCalled();
+    });
+
+    it('rejeita pedido sem etapa atual', async () => {
+      txMock.pedido.findUnique.mockResolvedValue({ ...pedido, etapaAtualId: null });
+      await expect(service.atualizarObservacao(10, 1, 'Texto')).rejects.toThrow('O pedido não possui uma etapa atual');
+      expect(txMock.pedido.updateMany).not.toHaveBeenCalled();
+      expect(txMock.observacaoEtapa.upsert).not.toHaveBeenCalled();
+    });
+
+    it('permite editar finalizado na última etapa por ordem, sem mudar etapa ou situação', async () => {
+      txMock.pedido.findUnique.mockResolvedValue({ ...pedido, situacao: 'FINALIZADO' });
+      txMock.etapa.findFirst.mockResolvedValue({ id: 2 });
+      await service.atualizarObservacao(10, 1, 'Texto final');
+      expect(txMock.etapa.findFirst).toHaveBeenCalledWith({
+        orderBy: { ordem: 'desc' }, select: { id: true },
+      });
+      expect(txMock.pedido.updateMany).toHaveBeenCalledWith({
+        where: { ...pedido, id: 10, situacao: 'FINALIZADO' },
+        data: { dataUltimaAtualizacao: expect.any(Date) },
+      });
+      expect(txMock.observacaoEtapa.upsert).toHaveBeenCalledTimes(1);
+    });
+
+    it.each([{ id: 3 }, null])('rejeita finalizado fora da última etapa: %j', async (ultima) => {
+      txMock.pedido.findUnique.mockResolvedValue({ ...pedido, situacao: 'FINALIZADO' });
+      txMock.etapa.findFirst.mockResolvedValue(ultima);
+      await expect(service.atualizarObservacao(10, 1, 'Texto'))
+        .rejects.toThrow('Só é permitido editar a observação de um pedido finalizado na última etapa');
+      expect(txMock.pedido.updateMany).not.toHaveBeenCalled();
+      expect(txMock.observacaoEtapa.upsert).not.toHaveBeenCalled();
+    });
+
+    it('retorna conflito sem gravar observação quando a versão mudou', async () => {
+      txMock.pedido.updateMany.mockResolvedValue({ count: 0 });
+      await expect(service.atualizarObservacao(10, 1, 'Texto'))
+        .rejects.toThrow('O pedido foi alterado por outro usuário');
+      expect(txMock.observacaoEtapa.upsert).not.toHaveBeenCalled();
+    });
+
+    it('converte P2034 em conflito HTTP 409', async () => {
+      txMock.observacaoEtapa.upsert.mockRejectedValue(new Prisma.PrismaClientKnownRequestError(
+        'Conflito', { code: 'P2034', clientVersion: 'teste' },
+      ));
+      await expect(service.atualizarObservacao(10, 1, 'Texto'))
+        .rejects.toMatchObject({ status: 409 });
+    });
+
+    it('rejeita a transação inteira se o upsert falhar após atualizar o marcador', async () => {
+      const erro = new Error('Falha na observação');
+      txMock.observacaoEtapa.upsert.mockRejectedValue(erro);
+      // O mock não simula PostgreSQL: verifica que a falha escapa do callback,
+      // condição necessária para o Prisma desfazer ambas as escritas.
+      let falhaTransacional: unknown;
+      prismaMock.$transaction.mockImplementation(async (callback) => {
+        try {
+          return await callback(txMock);
+        } catch (falha) {
+          falhaTransacional = falha;
+          throw falha;
+        }
+      });
+      await expect(service.atualizarObservacao(10, 1, 'Texto')).rejects.toBe(erro);
+      expect(falhaTransacional).toBe(erro);
+      expect(txMock.pedido.updateMany).toHaveBeenCalledTimes(1);
+      expect(txMock.observacaoEtapa.upsert).toHaveBeenCalledTimes(1);
+    });
   });
 
   describe('atualizarEtapa', () => {
@@ -98,7 +259,6 @@ describe('AndamentoService', () => {
         10,
         2,
         1,
-        'Etapa concluída',
       );
 
       // Verifica se a etapa foi atualizada
@@ -121,7 +281,6 @@ describe('AndamentoService', () => {
           pedidoId: 10,
           etapaId: 2,
           usuarioId: 1,
-          observacao: 'Etapa concluída',
         },
       });
 
@@ -249,7 +408,6 @@ describe('AndamentoService', () => {
         10,
         18,
         1,
-        'Pedido concluído',
     );
 
     // A etapa e a situação devem mudar juntas
@@ -272,7 +430,6 @@ describe('AndamentoService', () => {
         pedidoId: 10,
         etapaId: 18,
         usuarioId: 1,
-        observacao: 'Pedido concluído',
         },
     });
 
@@ -466,7 +623,6 @@ describe('AndamentoService', () => {
         10,
         2,
         1,
-        'Retorno para ajustes',
       );
 
       expect(txMock.pedido.updateMany).toHaveBeenCalledWith({
@@ -487,7 +643,6 @@ describe('AndamentoService', () => {
           pedidoId: 10,
           etapaId: 2,
           usuarioId: 1,
-          observacao: 'Retorno para ajustes',
         },
       });
 

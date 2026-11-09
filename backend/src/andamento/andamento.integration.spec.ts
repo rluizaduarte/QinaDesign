@@ -1,8 +1,9 @@
-import { ConflictException, ForbiddenException } from '@nestjs/common';
+import { BadRequestException, ConflictException, ForbiddenException, NotFoundException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { randomUUID } from 'node:crypto';
 import { Prisma, type Pedido } from '../generated/prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
+import { PedidosService } from '../pedidos/pedidos.service';
 import { AndamentoService } from './andamento.service';
 
 // Execução explícita: os testes unitários habituais não acessam PostgreSQL.
@@ -74,6 +75,7 @@ integrar('AndamentoService — integração PostgreSQL 16', () => {
   let pedido: Pedido;
   let usuarioId: number;
   let usuarioExcluidoId: number;
+  let pedidoInvalidoId: number;
   let etapas: { id: number; ordem: number }[] = [];
   const pedidosCriados: number[] = [];
   const usuariosCriados: number[] = [];
@@ -141,23 +143,36 @@ integrar('AndamentoService — integração PostgreSQL 16', () => {
     }
     pedido = await banco.pedido.create({
       data: {
-        codigo: `${marca}-${sufixo}`,
+        codigo: `${marca}-${sufixo}`.toUpperCase(),
         nomeCliente: 'Cliente sintético de integração',
         titulo: 'Pedido sintético de integração',
         dataInicio: new Date('2026-01-01T12:00:00Z'),
+        // Versão inicial distinta do relógio das transições concorrentes.
+        dataUltimaAtualizacao: new Date('2026-01-01T12:00:00Z'),
         etapaAtualId: etapas[1].id,
         criadoPorId: usuarioId,
       },
     });
     pedidosCriados.push(pedido.id);
+    const pedidoDescartavel = await banco.pedido.create({
+      data: {
+        codigo: `${marca}-${sufixo}-fk`.toUpperCase(),
+        nomeCliente: 'Fixture de referência inválida',
+        titulo: 'Pedido descartável',
+        dataInicio: pedido.dataInicio,
+      },
+    });
+    pedidosCriados.push(pedidoDescartavel.id);
+    pedidoInvalidoId = pedidoDescartavel.id;
+    await banco.pedido.delete({ where: { id: pedidoInvalidoId } });
   }, 20000);
 
   afterEach(async () => {
     if (!preparado || !banco) return;
     // IDs capturados e marca da execução: nenhum DELETE global.
-    // Pedido -> históricos usa o Cascade já existente no schema.
+    // Pedido -> históricos e observações usa o Cascade existente no schema.
     await banco.pedido.deleteMany({
-      where: { id: { in: pedidosCriados }, codigo: { startsWith: marca } },
+      where: { id: { in: pedidosCriados }, codigo: { startsWith: marca.toUpperCase() } },
     });
     await banco.etapa.deleteMany({
       where: { id: { in: etapasCriadas }, nome: { startsWith: marca } },
@@ -173,6 +188,288 @@ integrar('AndamentoService — integração PostgreSQL 16', () => {
   afterAll(async () => {
     await Promise.all([banco?.$disconnect(), leitor?.$disconnect()]);
   }, 10000);
+
+  // Leitura por outro client verifica apenas o estado confirmado no PostgreSQL.
+  async function estadoPersistido() {
+    return {
+      pedido: await leitor!.pedido.findUnique({ where: { id: pedido.id } }),
+      historicos: await leitor!.historicoEtapa.findMany({
+        where: { pedidoId: pedido.id }, orderBy: { id: 'asc' },
+      }),
+      observacoes: await leitor!.observacaoEtapa.findMany({
+        where: { pedidoId: pedido.id }, orderBy: { id: 'asc' },
+      }),
+    };
+  }
+
+  it('cria com trim e substitui a observação da etapa atual sem duplicar nem criar histórico', async () => {
+    const service = new AndamentoService(banco!);
+    const antes = await estadoPersistido();
+    const criada = await service.atualizarObservacao(pedido.id, usuarioId, '  Medidas conferidas \n');
+    expect(criada).toMatchObject({ pedidoId: pedido.id, etapaId: etapas[1].id, observacao: 'Medidas conferidas' });
+    expect(criada.criadoEm).toBeInstanceOf(Date);
+    expect(criada.atualizadoEm).toBeInstanceOf(Date);
+    const aposCriar = await estadoPersistido();
+    expect(aposCriar.observacoes).toEqual([criada]);
+    expect(aposCriar.pedido!.dataUltimaAtualizacao.getTime())
+      .toBeGreaterThan(antes.pedido!.dataUltimaAtualizacao.getTime());
+
+    const editada = await service.atualizarObservacao(pedido.id, usuarioId, '  Medidas revisadas  ');
+    expect(editada).toMatchObject({
+      id: criada.id, criadoEm: criada.criadoEm, etapaId: etapas[1].id, observacao: 'Medidas revisadas',
+    });
+    expect(editada.atualizadoEm.getTime()).toBeGreaterThanOrEqual(criada.atualizadoEm.getTime());
+    const depois = await estadoPersistido();
+    expect(depois.observacoes).toEqual([editada]);
+    expect(depois.pedido).toEqual({
+      ...antes.pedido, dataUltimaAtualizacao: depois.pedido!.dataUltimaAtualizacao,
+    });
+    expect(depois.pedido!.dataUltimaAtualizacao.getTime())
+      .toBeGreaterThan(aposCriar.pedido!.dataUltimaAtualizacao.getTime());
+    expect(depois.historicos).toEqual(antes.historicos);
+  }, 15000);
+
+  it.each([
+    'usuario-inexistente', 'usuario-inativo', 'pedido-inexistente',
+    'etapa-ausente', 'texto-vazio', 'texto-espacos', 'finalizado-fora-da-ultima',
+  ])('rejeita %s sem persistir alterações', async (cenario) => {
+    const idPedido = pedido.id;
+    let idUsuario = usuarioId;
+    let texto = 'Observação válida';
+    let erro: typeof BadRequestException | typeof NotFoundException | typeof ForbiddenException = BadRequestException;
+    if (cenario === 'usuario-inexistente') {
+      idUsuario = usuarioExcluidoId;
+      erro = NotFoundException;
+    } else if (cenario === 'usuario-inativo') {
+      await banco!.usuario.update({ where: { id: usuarioId }, data: { ativo: false } });
+      erro = ForbiddenException;
+    } else if (cenario === 'pedido-inexistente') {
+      // Exclui exclusivamente o pedido desta fixture; seu ID foi realmente alocado.
+      await banco!.pedido.delete({ where: { id: pedido.id } });
+      erro = NotFoundException;
+    } else if (cenario === 'etapa-ausente') {
+      await banco!.pedido.update({ where: { id: pedido.id }, data: { etapaAtualId: null } });
+    } else if (cenario === 'finalizado-fora-da-ultima') {
+      await banco!.pedido.update({ where: { id: pedido.id }, data: { situacao: 'FINALIZADO' } });
+      erro = ForbiddenException;
+    } else {
+      texto = cenario === 'texto-vazio' ? '' : ' \n\t ';
+    }
+    const antes = await estadoPersistido();
+    const service = new AndamentoService(banco!);
+    await expect(service.atualizarObservacao(idPedido, idUsuario, texto)).rejects.toBeInstanceOf(erro);
+    expect(await estadoPersistido()).toEqual(antes);
+  }, 15000);
+
+  it('edita a última etapa após finalização sem mudar etapa, situação ou histórico', async () => {
+    const service = new AndamentoService(banco!);
+    await service.atualizarEtapa(pedido.id, etapas[2].id, usuarioId);
+    await service.atualizarEtapa(pedido.id, etapas[3].id, usuarioId);
+    const antes = await estadoPersistido();
+    expect(antes.pedido!.situacao).toBe('FINALIZADO');
+    await service.atualizarObservacao(pedido.id, usuarioId, '  Entregue  ');
+    const editada = await service.atualizarObservacao(pedido.id, usuarioId, '  Entrega confirmada  ');
+    const depois = await estadoPersistido();
+    expect(depois.observacoes).toEqual([editada]);
+    expect(editada).toMatchObject({ etapaId: etapas[3].id, observacao: 'Entrega confirmada' });
+    expect(depois.pedido).toEqual({
+      ...antes.pedido, dataUltimaAtualizacao: depois.pedido!.dataUltimaAtualizacao,
+    });
+    expect(depois.historicos).toEqual(antes.historicos);
+    await expect(service.atualizarEtapa(pedido.id, etapas[2].id, usuarioId))
+      .rejects.toBeInstanceOf(ForbiddenException);
+    expect(await estadoPersistido()).toEqual(depois);
+  }, 15000);
+
+  // Não simula resultados: sincroniza SELECTs reais e conta UPDATEs reais.
+  function clienteConcorrente(vencedora?: 'edicao' | 'transicao') {
+    const barreira = criarBarreira();
+    let liberar!: () => void;
+    const commitPreferido = new Promise<void>((resolve) => { liberar = resolve; });
+    const leituras: { etapaAtualId: number | null; atualizacao: number }[] = [];
+    const contagens: number[] = [];
+    const client = banco!.$extends({
+      query: {
+        pedido: {
+          async findUnique({ args, query }) {
+            const resultado = await query(args);
+            if (args.where.id === pedido.id && resultado) {
+              if (
+                resultado.etapaAtualId === undefined ||
+                !(resultado.dataUltimaAtualizacao instanceof Date)
+              ) {
+                throw new Error('A leitura deve incluir etapa e timestamp reais.');
+              }
+              leituras.push({
+                etapaAtualId: resultado.etapaAtualId,
+                atualizacao: resultado.dataUltimaAtualizacao.getTime(),
+              });
+              await barreira.esperar();
+            }
+            return resultado;
+          },
+          async updateMany({ args, query }) {
+            // Ambas as operações já leram a mesma versão. A perdedora só
+            // tenta o UPDATE depois do commit real da operação escolhida.
+            const operacao = args.data.etapaAtualId === undefined ? 'edicao' : 'transicao';
+            if (vencedora && operacao !== vencedora) await commitPreferido;
+            const resultado = await query(args);
+            contagens.push(resultado.count);
+            return resultado;
+          },
+        },
+      },
+    });
+    return { service: new AndamentoService(client as unknown as PrismaService), barreira, leituras, contagens, liberar };
+  }
+
+  function conferirDisputa(resultados: PromiseSettledResult<unknown>[], leituras: unknown[], contagens: number[]) {
+    expect(leituras).toEqual(Array(2).fill({
+      etapaAtualId: pedido.etapaAtualId, atualizacao: pedido.dataUltimaAtualizacao.getTime(),
+    }));
+    expect([...contagens].sort()).toEqual([0, 1]);
+    expect(resultados.filter((item) => item.status === 'fulfilled')).toHaveLength(1);
+    const falhas = resultados.filter((item) => item.status === 'rejected');
+    expect(falhas).toHaveLength(1);
+    expect(falhas[0].reason).toBeInstanceOf(ConflictException);
+    expect((falhas[0].reason as ConflictException).getStatus()).toBe(409);
+  }
+
+  it('confirma apenas uma de duas edições concorrentes sem duplicar observação', async () => {
+    const { service, barreira, leituras, contagens } = clienteConcorrente();
+    const antes = await estadoPersistido();
+    try {
+      const textos = ['Primeira edição', 'Segunda edição'];
+      const resultados = await Promise.allSettled(textos.map((texto) =>
+        service.atualizarObservacao(pedido.id, usuarioId, texto),
+      ));
+      conferirDisputa(resultados, leituras, contagens);
+      const depois = await estadoPersistido();
+      expect(depois.observacoes).toHaveLength(1);
+      expect(depois.observacoes[0]).toMatchObject({
+        pedidoId: pedido.id, etapaId: etapas[1].id,
+        observacao: textos[resultados.findIndex((item) => item.status === 'fulfilled')],
+      });
+      expect(depois.historicos).toEqual(antes.historicos);
+      expect(depois.pedido).toEqual({
+        ...antes.pedido, dataUltimaAtualizacao: depois.pedido!.dataUltimaAtualizacao,
+      });
+    } finally {
+      barreira.fechar();
+    }
+  }, 20000);
+
+  it.each(['edicao', 'transicao'] as const)('resolve edição versus transição com %s vencendo sem escrita parcial', async (vencedora) => {
+    const { service, barreira, leituras, contagens, liberar } = clienteConcorrente(vencedora);
+    try {
+      const edicao = service.atualizarObservacao(pedido.id, usuarioId, 'Edição concorrente');
+      const transicao = service.atualizarEtapa(pedido.id, etapas[2].id, usuarioId);
+      const resultados = await Promise.allSettled([
+        vencedora === 'edicao' ? edicao.finally(liberar) : edicao,
+        vencedora === 'transicao' ? transicao.finally(liberar) : transicao,
+      ]);
+      conferirDisputa(resultados, leituras, contagens);
+      expect(resultados[vencedora === 'edicao' ? 0 : 1].status).toBe('fulfilled');
+      const depois = await estadoPersistido();
+      expect(depois.pedido!.situacao).toBe('EM_ANDAMENTO');
+      if (resultados[0].status === 'fulfilled') {
+        expect(depois.pedido!.etapaAtualId).toBe(etapas[1].id);
+        expect(depois.historicos).toEqual([]);
+        expect(depois.observacoes).toEqual([resultados[0].value]);
+        expect(depois.observacoes[0].etapaId).toBe(etapas[1].id);
+      } else {
+        expect(depois.pedido!.etapaAtualId).toBe(etapas[2].id);
+        expect(depois.observacoes).toEqual([]);
+        expect(depois.historicos).toHaveLength(1);
+        expect(depois.historicos[0]).toMatchObject({ etapaId: etapas[2].id, usuarioId });
+      }
+    } finally {
+      liberar();
+      barreira.fechar();
+    }
+  }, 20000);
+
+  it.each([false, true])('desfaz marcador e observação ao falhar o upsert real (existente=%s)', async (existente) => {
+    if (existente) {
+      await new AndamentoService(banco!).atualizarObservacao(pedido.id, usuarioId, 'Texto anterior');
+    }
+    const antes = await estadoPersistido();
+    let atualizacoesReais = 0;
+    let gravacoesReais = 0;
+    const comFalha = banco!.$extends({
+      query: {
+        pedido: {
+          async updateMany({ args, query }) {
+            const resultado = await query(args);
+            atualizacoesReais += resultado.count;
+            return resultado;
+          },
+        },
+        observacaoEtapa: {
+          async upsert({ args, query }) {
+            if (
+              typeof args.create.etapaId !== 'number' ||
+              typeof args.update.observacao !== 'string'
+            ) {
+              throw new Error('Esperado upsert com etapa escalar e texto do service.');
+            }
+            gravacoesReais++;
+            // FK de pedido alocada e excluída na própria fixture.
+            // Tanto INSERT quanto UPDATE chegam ao PostgreSQL com FK inválida.
+            return query({
+              ...args,
+              create: {
+                pedidoId: pedidoInvalidoId,
+                etapaId: args.create.etapaId,
+                observacao: args.create.observacao,
+              },
+              update: { observacao: args.update.observacao, pedidoId: pedidoInvalidoId },
+            });
+          },
+        },
+      },
+    });
+    const service = new AndamentoService(comFalha as unknown as PrismaService);
+    await expect(service.atualizarObservacao(pedido.id, usuarioId, 'Não deve persistir'))
+      .rejects.toMatchObject({ code: 'P2003' });
+    expect(atualizacoesReais).toBe(1);
+    expect(gravacoesReais).toBe(1);
+    expect(await estadoPersistido()).toEqual(antes);
+  }, 15000);
+
+  it('oculta observações futuras no retrocesso e as reexibe no avanço sem apagar dados', async () => {
+    const service = new AndamentoService(banco!);
+    const publico = new PedidosService(leitor!);
+    await service.atualizarObservacao(pedido.id, usuarioId, 'Observação inicial');
+    await service.atualizarEtapa(pedido.id, etapas[2].id, usuarioId);
+    await service.atualizarObservacao(pedido.id, usuarioId, 'Observação posterior');
+    const antes = await estadoPersistido();
+    const avancado = await publico.buscarPorCodigo(pedido.codigo);
+    expect(avancado.etapas.find((item) => item.ordem === etapas[1].ordem))
+      .toMatchObject({ observacao: 'Observação inicial', status: 'CONCLUIDA' });
+    expect(avancado.etapas.find((item) => item.ordem === etapas[2].ordem))
+      .toMatchObject({ observacao: 'Observação posterior', status: 'ATUAL' });
+
+    await service.atualizarEtapa(pedido.id, etapas[1].id, usuarioId);
+    const retrocedido = await publico.buscarPorCodigo(pedido.codigo);
+    expect(retrocedido.etapas.find((item) => item.ordem === etapas[1].ordem))
+      .toMatchObject({ observacao: 'Observação inicial', status: 'ATUAL' });
+    const futura = retrocedido.etapas.find((item) => item.ordem === etapas[2].ordem);
+    expect(futura).toMatchObject({ observacao: null, status: 'PENDENTE' });
+    expect(futura!.dataHora).toEqual(antes.historicos[0].dataHora);
+    expect((await estadoPersistido()).observacoes).toEqual(antes.observacoes);
+
+    await service.atualizarEtapa(pedido.id, etapas[2].id, usuarioId);
+    const reavancado = await publico.buscarPorCodigo(pedido.codigo);
+    expect(reavancado.etapas.find((item) => item.ordem === etapas[2].ordem))
+      .toMatchObject({ observacao: 'Observação posterior', status: 'ATUAL' });
+    expect((await estadoPersistido()).observacoes).toEqual(antes.observacoes);
+    expect(reavancado.etapas.map((item) => item.ordem)).toEqual(
+      reavancado.etapas.map((item) => item.ordem).sort((a, b) => a - b),
+    );
+    expect(reavancado).not.toHaveProperty('historicos');
+    expect(reavancado).not.toHaveProperty('criadoPorId');
+  }, 20000);
 
   it('confirma somente uma transição concorrente e exatamente um histórico', async () => {
     const prisma = banco!;
@@ -222,13 +519,11 @@ integrar('AndamentoService — integração PostgreSQL 16', () => {
           pedido.id,
           etapas[0].id,
           usuarioId,
-          '  retrocesso  ',
         ),
         service.atualizarEtapa(
           pedido.id,
           etapas[2].id,
           usuarioId,
-          '  avanço  ',
         ),
       ]);
       expect(leituras).toEqual([
@@ -263,9 +558,6 @@ integrar('AndamentoService — integração PostgreSQL 16', () => {
       expect(persistido.situacao).toBe('EM_ANDAMENTO');
       expect(historicos[0].etapaId).toBe(persistido.etapaAtualId);
       expect(historicos[0].usuarioId).toBe(usuarioId);
-      expect(historicos[0].observacao).toBe(
-        persistido.etapaAtualId === etapas[0].id ? 'retrocesso' : 'avanço',
-      );
       expect(historicos[0].dataHora).toBeInstanceOf(Date);
       const sucesso = sucessos[0];
       if (sucesso.status !== 'fulfilled')
@@ -311,7 +603,6 @@ integrar('AndamentoService — integração PostgreSQL 16', () => {
               pedidoId: args.data.pedidoId,
               etapaId: args.data.etapaId,
               usuarioId: usuarioExcluidoId,
-              observacao: args.data.observacao,
               dataHora: args.data.dataHora,
             };
             return query({ ...args, data });
@@ -327,7 +618,6 @@ integrar('AndamentoService — integração PostgreSQL 16', () => {
         pedido.id,
         etapas[2].id,
         usuarioId,
-        'Não deve persistir',
       ),
     ).rejects.toMatchObject({ code: 'P2003' });
     expect(atualizacoesReais).toBe(1);
@@ -350,7 +640,6 @@ integrar('AndamentoService — integração PostgreSQL 16', () => {
       pedido.id,
       etapas[3].id,
       usuarioId,
-      '  Finalizado  ',
     );
     const finalizado = await leitor!.pedido.findUniqueOrThrow({
       where: { id: pedido.id },
@@ -362,11 +651,9 @@ integrar('AndamentoService — integração PostgreSQL 16', () => {
       orderBy: { id: 'asc' },
     });
     expect(historicos).toHaveLength(2);
-    expect(historicos[0].observacao).toBeNull();
     expect(historicos[1]).toMatchObject({
       etapaId: etapas[3].id,
       usuarioId,
-      observacao: 'Finalizado',
     });
     expect(historicos[1].dataHora).toBeInstanceOf(Date);
     await expect(

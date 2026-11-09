@@ -163,22 +163,33 @@ async function main() {
       );
       const pedidoId = pedidos[0].id;
 
-      // Histórico recriado a cada execução, para poder rodar o seed de novo
+      // Histórico e observações demonstrativas recriados a cada execução.
       await client.query('DELETE FROM "HistoricoEtapa" WHERE "pedidoId" = $1', [
+        pedidoId,
+      ]);
+      await client.query('DELETE FROM "ObservacaoEtapa" WHERE "pedidoId" = $1', [
         pedidoId,
       ]);
 
       for (const item of pedido.historicos) {
         await client.query(
-          'INSERT INTO "HistoricoEtapa" ("pedidoId", "etapaId", "dataHora", "observacao") ' +
-            'VALUES ($1, $2, $3, $4)',
+          'INSERT INTO "HistoricoEtapa" ("pedidoId", "etapaId", "dataHora") ' +
+            'VALUES ($1, $2, $3)',
           [
             pedidoId,
             porNome.get(item.etapa)!.id,
             diasAtras(item.diasAtras, item.hora),
-            item.observacao ?? null,
           ],
         );
+        if (item.observacao !== undefined) {
+          await client.query(
+            'INSERT INTO "ObservacaoEtapa" ("pedidoId", "etapaId", "observacao", "atualizadoEm") ' +
+              'VALUES ($1, $2, $3, now()) ' +
+              'ON CONFLICT ("pedidoId", "etapaId") DO UPDATE SET ' +
+              '"observacao" = EXCLUDED."observacao", "atualizadoEm" = now()',
+            [pedidoId, porNome.get(item.etapa)!.id, item.observacao],
+          );
+        }
       }
     }
 
