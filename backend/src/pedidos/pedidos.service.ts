@@ -1,4 +1,5 @@
 import {
+  ConflictException,
   ForbiddenException,
   Injectable,
   InternalServerErrorException,
@@ -8,6 +9,7 @@ import { randomBytes } from 'crypto';
 import { Prisma } from '../generated/prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { CriarPedidoDto } from './dto/criar-pedido.dto';
+import { AtualizarPedidoDto } from './dto/atualizar-pedido.dto';
 import { ListarPedidosQueryDto } from './dto/listar-pedidos-query.dto';
 
 export type StatusEtapa = 'CONCLUIDA' | 'ATUAL' | 'PENDENTE';
@@ -164,6 +166,35 @@ export class PedidosService {
         };
       }),
     };
+  }
+
+    // ATUALIZAR DADOS DO PEDIDO
+  async atualizar(id: number, dto: AtualizarPedidoDto, usuarioId: number) {
+    await this.garantirUsuarioAtivo(usuarioId);
+
+    const pedido = await this.prisma.pedido.findUnique({
+      where: { id },
+      select: { id: true, situacao: true },
+    });
+
+    if (!pedido) {
+      throw new NotFoundException('Pedido não encontrado');
+    }
+    if (pedido.situacao === 'FINALIZADO') {
+      throw new ConflictException('Pedido finalizado não pode ser editado');
+    }
+
+    return this.prisma.pedido.update({
+      where: { id },
+      data: {
+        ...(dto.nomeCliente !== undefined && { nomeCliente: dto.nomeCliente }),
+        ...(dto.titulo !== undefined && { titulo: dto.titulo }),
+        ...(dto.dataInicio !== undefined && {
+          dataInicio: new Date(dto.dataInicio),
+        }),
+      },
+      include: { etapaAtual: true },
+    });
   }
 
   //AUXILIARES
