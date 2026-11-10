@@ -1,4 +1,5 @@
 import {
+  ConflictException,
   ForbiddenException,
   InternalServerErrorException,
   NotFoundException,
@@ -20,6 +21,8 @@ describe('PedidosService', () => {
       findMany: jest.fn(),
       count: jest.fn(),
       findUnique: jest.fn(),
+      update: jest.fn(),
+
     },
     $transaction: jest.fn(),
   };
@@ -318,6 +321,76 @@ describe('PedidosService', () => {
         service.buscarPorCodigo('QD-2026-ABC123', 1),
       ).rejects.toThrow(ForbiddenException);
       expect(prismaMock.pedido.findUnique).not.toHaveBeenCalled();
+    });
+  });
+    describe('atualizar', () => {
+    const dtoAtualizar = { titulo: 'Novo título' };
+
+    it('recusa usuário inativo e não grava nada', async () => {
+      usuarioInativo();
+
+      await expect(service.atualizar(1, dtoAtualizar, 1)).rejects.toThrow(
+        ForbiddenException,
+      );
+      expect(prismaMock.pedido.update).not.toHaveBeenCalled();
+    });
+
+    it('lança NotFoundException se o pedido não existe', async () => {
+      usuarioAtivo();
+      prismaMock.pedido.findUnique.mockResolvedValue(null);
+
+      await expect(service.atualizar(99, dtoAtualizar, 1)).rejects.toThrow(
+        NotFoundException,
+      );
+      expect(prismaMock.pedido.update).not.toHaveBeenCalled();
+    });
+
+    it('recusa editar pedido finalizado', async () => {
+      usuarioAtivo();
+      prismaMock.pedido.findUnique.mockResolvedValue({
+        id: 1,
+        situacao: 'FINALIZADO',
+      });
+
+      await expect(service.atualizar(1, dtoAtualizar, 1)).rejects.toThrow(
+        ConflictException,
+      );
+      expect(prismaMock.pedido.update).not.toHaveBeenCalled();
+    });
+
+    it('atualiza só os campos enviados', async () => {
+      usuarioAtivo();
+      prismaMock.pedido.findUnique.mockResolvedValue({
+        id: 1,
+        situacao: 'EM_ANDAMENTO',
+      });
+      prismaMock.pedido.update.mockResolvedValue({ id: 1 });
+
+      await service.atualizar(1, dtoAtualizar, 1);
+
+      expect(prismaMock.pedido.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { id: 1 },
+          data: { titulo: 'Novo título' },
+        }),
+      );
+    });
+
+    it('converte dataInicio para Date', async () => {
+      usuarioAtivo();
+      prismaMock.pedido.findUnique.mockResolvedValue({
+        id: 1,
+        situacao: 'EM_ANDAMENTO',
+      });
+      prismaMock.pedido.update.mockResolvedValue({ id: 1 });
+
+      await service.atualizar(1, { dataInicio: '2026-12-01' }, 1);
+
+      expect(prismaMock.pedido.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: { dataInicio: new Date('2026-12-01') },
+        }),
+      );
     });
   });
 });
