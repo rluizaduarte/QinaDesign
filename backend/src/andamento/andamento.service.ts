@@ -18,7 +18,6 @@ export class AndamentoService {
     pedidoId: number,
     novaEtapaId: number,
     usuarioId: number,
-    observacao?: string,
   ) {
     try {
       return await this.prisma.$transaction(async (tx) => {
@@ -77,7 +76,6 @@ export class AndamentoService {
             pedidoId,
             etapaId: novaEtapaId,
             usuarioId,
-            observacao: observacao?.trim() || null,
           },
         });
 
@@ -99,6 +97,85 @@ export class AndamentoService {
       }
 
       // Mantém os demais erros com seu comportamento original
+      throw erro;
+    }
+  }
+
+  async atualizarObservacao(
+    pedidoId: number,
+    usuarioId: number,
+    observacao: string,
+  ) {
+    try {
+      return await this.prisma.$transaction(async (tx) => {
+        await this.garantirUsuarioAtivo(usuarioId, tx);
+
+        const pedido = await tx.pedido.findUnique({
+          where: { id: pedidoId },
+        });
+        if (!pedido) {
+          throw new NotFoundException('Pedido não encontrado');
+        }
+        if (pedido.etapaAtualId === null) {
+          throw new BadRequestException('O pedido não possui uma etapa atual');
+        }
+
+        const texto = observacao.trim();
+        if (!texto) {
+          throw new BadRequestException('A observação não pode ser vazia');
+        }
+
+        if (pedido.situacao === 'FINALIZADO') {
+          const ultimaEtapa = await tx.etapa.findFirst({
+            orderBy: { ordem: 'desc' },
+            select: { id: true },
+          });
+          if (ultimaEtapa?.id !== pedido.etapaAtualId) {
+            throw new ForbiddenException(
+              'Só é permitido editar a observação de um pedido finalizado na última etapa',
+            );
+          }
+        }
+
+        // A edição participa da versão do pedido usada nas transições.
+        // Avança ao menos 1 ms para não reutilizar o timestamp lido.
+        const dataUltimaAtualizacao = new Date(Math.max(
+          Date.now(),
+          pedido.dataUltimaAtualizacao.getTime() + 1,
+        ));
+        const resultado = await tx.pedido.updateMany({
+          where: {
+            id: pedidoId,
+            etapaAtualId: pedido.etapaAtualId,
+            situacao: pedido.situacao,
+            dataUltimaAtualizacao: pedido.dataUltimaAtualizacao,
+          },
+          data: { dataUltimaAtualizacao },
+        });
+        if (resultado.count !== 1) {
+          throw new ConflictException(
+            'O pedido foi alterado por outro usuário. Atualize os dados e tente novamente.',
+          );
+        }
+
+        // A falha do upsert também desfaz o marcador de concorrência.
+        return tx.observacaoEtapa.upsert({
+          where: {
+            pedidoId_etapaId: { pedidoId, etapaId: pedido.etapaAtualId },
+          },
+          create: { pedidoId, etapaId: pedido.etapaAtualId, observacao: texto },
+          update: { observacao: texto },
+        });
+      });
+    } catch (erro: unknown) {
+      if (
+        erro instanceof Prisma.PrismaClientKnownRequestError &&
+        erro.code === 'P2034'
+      ) {
+        throw new ConflictException(
+          'Conflito ao atualizar o pedido. Atualize os dados e tente novamente.',
+        );
+      }
       throw erro;
     }
   }

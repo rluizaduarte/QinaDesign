@@ -1,4 +1,5 @@
 import {
+  ConflictException,
   ForbiddenException,
   Injectable,
   InternalServerErrorException,
@@ -8,6 +9,7 @@ import { randomBytes } from 'crypto';
 import { Prisma } from '../generated/prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { CriarPedidoDto } from './dto/criar-pedido.dto';
+import { AtualizarPedidoDto } from './dto/atualizar-pedido.dto';
 import { ListarPedidosQueryDto } from './dto/listar-pedidos-query.dto';
 
 export type StatusEtapa = 'CONCLUIDA' | 'ATUAL' | 'PENDENTE';
@@ -110,6 +112,7 @@ export class PedidosService {
       include: {
         etapaAtual: true,
         historicos: { orderBy: { dataHora: 'asc' }, include: { etapa: true } },
+        observacoesEtapas: { select: { etapaId: true, observacao: true } },
       },
     });
 
@@ -123,6 +126,9 @@ export class PedidosService {
 
     const ordemAtual = pedido.etapaAtual?.ordem ?? null;
     const finalizado = pedido.situacao === 'FINALIZADO';
+    const observacoesPorEtapa = new Map(
+      pedido.observacoesEtapas.map((item) => [item.etapaId, item.observacao]),
+    );
 
     return {
       codigo: pedido.codigo,
@@ -135,7 +141,7 @@ export class PedidosService {
         ? { nome: pedido.etapaAtual.nome, ordem: pedido.etapaAtual.ordem }
         : null,
       etapas: etapas.map((etapa) => {
-        // Último registro da etapa (data + observação exibidas na linha do tempo)
+        // A data continua sendo a do último registro de transição da etapa.
         const registro =
           pedido.historicos.filter((item) => item.etapaId === etapa.id).at(-1) ??
           null;
@@ -152,11 +158,43 @@ export class PedidosService {
           nome: etapa.nome,
           ordem: etapa.ordem,
           dataHora: registro?.dataHora ?? null,
-          observacao: registro?.observacao ?? null,
+          // Sem etapa atual não há limite seguro para publicar observações.
+          observacao: ordemAtual !== null && etapa.ordem <= ordemAtual
+            ? observacoesPorEtapa.get(etapa.id) ?? null
+            : null,
           status,
         };
       }),
     };
+  }
+
+    // ATUALIZAR DADOS DO PEDIDO
+  async atualizar(id: number, dto: AtualizarPedidoDto, usuarioId: number) {
+    await this.garantirUsuarioAtivo(usuarioId);
+
+    const pedido = await this.prisma.pedido.findUnique({
+      where: { id },
+      select: { id: true, situacao: true },
+    });
+
+    if (!pedido) {
+      throw new NotFoundException('Pedido não encontrado');
+    }
+    if (pedido.situacao === 'FINALIZADO') {
+      throw new ConflictException('Pedido finalizado não pode ser editado');
+    }
+
+    return this.prisma.pedido.update({
+      where: { id },
+      data: {
+        ...(dto.nomeCliente !== undefined && { nomeCliente: dto.nomeCliente }),
+        ...(dto.titulo !== undefined && { titulo: dto.titulo }),
+        ...(dto.dataInicio !== undefined && {
+          dataInicio: new Date(dto.dataInicio),
+        }),
+      },
+      include: { etapaAtual: true },
+    });
   }
 
   //AUXILIARES

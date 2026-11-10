@@ -1,4 +1,5 @@
 import {
+  ConflictException,
   ForbiddenException,
   InternalServerErrorException,
   NotFoundException,
@@ -20,6 +21,8 @@ describe('PedidosService', () => {
       findMany: jest.fn(),
       count: jest.fn(),
       findUnique: jest.fn(),
+      update: jest.fn(),
+
     },
     $transaction: jest.fn(),
   };
@@ -172,9 +175,121 @@ describe('PedidosService', () => {
   });
 
   describe('buscarPorCodigo', () => {
+    // IDs e posições das observações não representam a ordem das etapas.
+    const etapas = [
+      { id: 30, nome: 'Projeto', ordem: 10 },
+      { id: 10, nome: 'Produção', ordem: 20 },
+      { id: 20, nome: 'Entrega', ordem: 30 },
+    ];
+    const primeiraData = new Date('2026-11-01T12:00:00Z');
+    const ultimaData = new Date('2026-11-03T12:00:00Z');
+    const criarPedido = () => ({
+      id: 100,
+      codigo: 'QD-2026-ABC123',
+      nomeCliente: 'Ana',
+      titulo: 'Convite',
+      situacao: 'EM_ANDAMENTO',
+      criadoEm: primeiraData,
+      dataUltimaAtualizacao: ultimaData,
+      etapaAtualId: 10,
+      etapaAtual: etapas[1],
+      criadoPorId: 99,
+      criadoPor: { email: 'interno@example.com', senhaHash: 'segredo' },
+      historicos: [
+        { id: 1, etapaId: 30, dataHora: primeiraData, usuarioId: 99 },
+        { id: 2, etapaId: 10, dataHora: primeiraData, usuarioId: 99 },
+        { id: 3, etapaId: 10, dataHora: ultimaData, usuarioId: 99 },
+        { id: 4, etapaId: 20, dataHora: ultimaData, usuarioId: 99 },
+      ],
+      observacoesEtapas: [
+        { id: 3, pedidoId: 100, etapaId: 20, observacao: 'Texto futuro', atualizadoEm: ultimaData },
+        { id: 1, pedidoId: 100, etapaId: 30, observacao: 'Texto anterior', atualizadoEm: ultimaData },
+        { id: 2, pedidoId: 100, etapaId: 10, observacao: 'Texto atual', atualizadoEm: ultimaData },
+      ],
+    });
+
+    beforeEach(() => {
+      prismaMock.pedido.findUnique.mockResolvedValue(criarPedido());
+      prismaMock.etapa.findMany.mockResolvedValue(etapas);
+    });
+
+    it('associa por etapaId, exibe anteriores e atuais e oculta futuras, preservando datas e status', async () => {
+      const resultado = await service.buscarPorCodigo('QD-2026-ABC123');
+      expect(resultado.etapas).toEqual([
+        { nome: 'Projeto', ordem: 10, dataHora: primeiraData, observacao: 'Texto anterior', status: 'CONCLUIDA' },
+        { nome: 'Produção', ordem: 20, dataHora: ultimaData, observacao: 'Texto atual', status: 'ATUAL' },
+        { nome: 'Entrega', ordem: 30, dataHora: ultimaData, observacao: null, status: 'PENDENTE' },
+      ]);
+      expect(prismaMock.pedido.findUnique).toHaveBeenCalledWith({
+        where: { codigo: 'QD-2026-ABC123' },
+        include: {
+          etapaAtual: true,
+          historicos: { orderBy: { dataHora: 'asc' }, include: { etapa: true } },
+          observacoesEtapas: { select: { etapaId: true, observacao: true } },
+        },
+      });
+      expect(prismaMock.etapa.findMany).toHaveBeenCalledWith({ orderBy: { ordem: 'asc' } });
+    });
+
+    it('oculta após retrocesso e volta a exibir ao avançar, sem modificar os registros', async () => {
+      const pedido = criarPedido();
+      const observacoesAntes = pedido.observacoesEtapas.map((item) => ({ ...item }));
+      prismaMock.pedido.findUnique.mockResolvedValue(pedido);
+      expect((await service.buscarPorCodigo(pedido.codigo)).etapas[1].observacao).toBe('Texto atual');
+      pedido.etapaAtual = etapas[0];
+      pedido.etapaAtualId = etapas[0].id;
+      const retrocedido = await service.buscarPorCodigo(pedido.codigo);
+      expect(retrocedido.etapas.map((item) => item.observacao)).toEqual(['Texto anterior', null, null]);
+      expect(retrocedido.etapas.map((item) => item.status)).toEqual(['ATUAL', 'PENDENTE', 'PENDENTE']);
+      expect(retrocedido.etapas[1].dataHora).toEqual(ultimaData);
+      pedido.etapaAtual = etapas[1];
+      pedido.etapaAtualId = etapas[1].id;
+      expect((await service.buscarPorCodigo(pedido.codigo)).etapas[1].observacao).toBe('Texto atual');
+      expect(pedido.observacoesEtapas).toEqual(observacoesAntes);
+      expect(prismaMock.pedido.create).not.toHaveBeenCalled();
+      expect(prismaMock.$transaction).not.toHaveBeenCalled();
+    });
+
+    it('retorna null quando não há observações, inclusive sem histórico na etapa', async () => {
+      prismaMock.pedido.findUnique.mockResolvedValue({
+        ...criarPedido(), observacoesEtapas: [], historicos: [],
+      });
+      const resultado = await service.buscarPorCodigo('QD-2026-ABC123');
+      expect(resultado.etapas.map((item) => item.observacao)).toEqual([null, null, null]);
+      expect(resultado.etapas.map((item) => item.dataHora)).toEqual([null, null, null]);
+      expect(resultado.etapas.map((item) => item.status)).toEqual(['CONCLUIDA', 'ATUAL', 'PENDENTE']);
+    });
+
+    it.each(['EM_ANDAMENTO', 'FINALIZADO'])('oculta todas as observações sem etapa atual em %s', async (situacao) => {
+      prismaMock.pedido.findUnique.mockResolvedValue({
+        ...criarPedido(), situacao, etapaAtualId: null, etapaAtual: null,
+      });
+      const resultado = await service.buscarPorCodigo('QD-2026-ABC123');
+      expect(resultado.etapaAtual).toBeNull();
+      expect(resultado.etapas.map((item) => item.observacao)).toEqual([null, null, null]);
+      expect(resultado.etapas.map((item) => item.status)).toEqual(
+        Array(3).fill(situacao === 'FINALIZADO' ? 'CONCLUIDA' : 'PENDENTE'),
+      );
+      expect(resultado.etapas[1].dataHora).toEqual(ultimaData);
+    });
+
+    it('preserva o contrato público e não expõe campos internos nem usuários', async () => {
+      const resultado = await service.buscarPorCodigo('QD-2026-ABC123');
+      expect(resultado).toEqual({
+        codigo: 'QD-2026-ABC123', nomeCliente: 'Ana', titulo: 'Convite',
+        situacao: 'EM_ANDAMENTO', criadoEm: primeiraData, dataUltimaAtualizacao: ultimaData,
+        etapaAtual: { nome: 'Produção', ordem: 20 },
+        etapas: [
+          { nome: 'Projeto', ordem: 10, dataHora: primeiraData, observacao: 'Texto anterior', status: 'CONCLUIDA' },
+          { nome: 'Produção', ordem: 20, dataHora: ultimaData, observacao: 'Texto atual', status: 'ATUAL' },
+          { nome: 'Entrega', ordem: 30, dataHora: ultimaData, observacao: null, status: 'PENDENTE' },
+        ],
+      });
+      expect(prismaMock.usuario.findUnique).not.toHaveBeenCalled();
+    });
+
     // Requisito: consultar pelo código
     it('normaliza o código (espaços e minúsculas)', async () => {
-      prismaMock.pedido.findUnique.mockResolvedValue({ id: 1 });
 
       await service.buscarPorCodigo('  qd-2026-abc123 ');
 
@@ -193,7 +308,6 @@ describe('PedidosService', () => {
 
     // Protege a decisão da consulta pública (sem usuário logado)
     it('não consulta o usuário quando a busca é pública', async () => {
-      prismaMock.pedido.findUnique.mockResolvedValue({ id: 1 });
 
       await service.buscarPorCodigo('QD-2026-ABC123');
 
@@ -207,6 +321,76 @@ describe('PedidosService', () => {
         service.buscarPorCodigo('QD-2026-ABC123', 1),
       ).rejects.toThrow(ForbiddenException);
       expect(prismaMock.pedido.findUnique).not.toHaveBeenCalled();
+    });
+  });
+    describe('atualizar', () => {
+    const dtoAtualizar = { titulo: 'Novo título' };
+
+    it('recusa usuário inativo e não grava nada', async () => {
+      usuarioInativo();
+
+      await expect(service.atualizar(1, dtoAtualizar, 1)).rejects.toThrow(
+        ForbiddenException,
+      );
+      expect(prismaMock.pedido.update).not.toHaveBeenCalled();
+    });
+
+    it('lança NotFoundException se o pedido não existe', async () => {
+      usuarioAtivo();
+      prismaMock.pedido.findUnique.mockResolvedValue(null);
+
+      await expect(service.atualizar(99, dtoAtualizar, 1)).rejects.toThrow(
+        NotFoundException,
+      );
+      expect(prismaMock.pedido.update).not.toHaveBeenCalled();
+    });
+
+    it('recusa editar pedido finalizado', async () => {
+      usuarioAtivo();
+      prismaMock.pedido.findUnique.mockResolvedValue({
+        id: 1,
+        situacao: 'FINALIZADO',
+      });
+
+      await expect(service.atualizar(1, dtoAtualizar, 1)).rejects.toThrow(
+        ConflictException,
+      );
+      expect(prismaMock.pedido.update).not.toHaveBeenCalled();
+    });
+
+    it('atualiza só os campos enviados', async () => {
+      usuarioAtivo();
+      prismaMock.pedido.findUnique.mockResolvedValue({
+        id: 1,
+        situacao: 'EM_ANDAMENTO',
+      });
+      prismaMock.pedido.update.mockResolvedValue({ id: 1 });
+
+      await service.atualizar(1, dtoAtualizar, 1);
+
+      expect(prismaMock.pedido.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { id: 1 },
+          data: { titulo: 'Novo título' },
+        }),
+      );
+    });
+
+    it('converte dataInicio para Date', async () => {
+      usuarioAtivo();
+      prismaMock.pedido.findUnique.mockResolvedValue({
+        id: 1,
+        situacao: 'EM_ANDAMENTO',
+      });
+      prismaMock.pedido.update.mockResolvedValue({ id: 1 });
+
+      await service.atualizar(1, { dataInicio: '2026-12-01' }, 1);
+
+      expect(prismaMock.pedido.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: { dataInicio: new Date('2026-12-01') },
+        }),
+      );
     });
   });
 });
