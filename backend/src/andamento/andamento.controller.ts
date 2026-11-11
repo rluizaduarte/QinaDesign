@@ -5,51 +5,59 @@ import {
   Param,
   ParseIntPipe,
   Patch,
+  Req,
+  UseGuards,
 } from '@nestjs/common';
+import type { Request } from 'express';
+import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { AndamentoService } from './andamento.service';
 import { AtualizarEtapaDto } from './dto/atualizar-etapa.dto';
 import { AtualizarObservacaoDto } from './dto/atualizar-observacao.dto';
 
-// PROVISÓRIO até a Etapa 4: TODO trocar por req.user.id (JwtAuthGuard).
-// O id NUNCA deve vir do body ou da query.
-const USUARIO_PROVISORIO_ID = 1;
+interface UsuarioAutenticado {
+  id: number;
+}
+
+type RequisicaoAutenticada = Request & {
+  user: UsuarioAutenticado;
+};
 
 @Controller('pedidos/:pedidoId')
+@UseGuards(JwtAuthGuard)
 export class AndamentoController {
   constructor(private readonly andamentoService: AndamentoService) {}
 
-  // ADMINISTRADOR ou FUNCIONARIO (proteger na Etapa 4)
   @Patch('etapa')
   atualizarEtapa(
     @Param('pedidoId', ParseIntPipe) pedidoId: number,
     @Body() dto: AtualizarEtapaDto,
+    @Req() request: RequisicaoAutenticada,
   ) {
     return this.andamentoService.atualizarEtapa(
       pedidoId,
       dto.novaEtapaId,
-      USUARIO_PROVISORIO_ID,
+      request.user.id,
     );
   }
 
-  // ADMINISTRADOR ou FUNCIONARIO (proteger na Etapa 4)
   @Patch('observacao')
   atualizarObservacao(
     @Param('pedidoId', ParseIntPipe) pedidoId: number,
     @Body() dto: AtualizarObservacaoDto,
+    @Req() request: RequisicaoAutenticada,
   ) {
     return this.andamentoService.atualizarObservacao(
       pedidoId,
-      USUARIO_PROVISORIO_ID,
+      request.user.id,
       dto.observacao,
     );
   }
 
-  // ADMINISTRADOR ou FUNCIONARIO (proteger na Etapa 4)
   @Get('historico')
-  consultarHistorico(@Param('pedidoId', ParseIntPipe) pedidoId: number) {
-    return this.andamentoService.consultarHistorico(
-      pedidoId,
-      USUARIO_PROVISORIO_ID,
-    );
+  consultarHistorico(
+    @Param('pedidoId', ParseIntPipe) pedidoId: number,
+    @Req() request: RequisicaoAutenticada,
+  ) {
+    return this.andamentoService.consultarHistorico(pedidoId, request.user.id);
   }
 }
