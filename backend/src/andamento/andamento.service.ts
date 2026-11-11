@@ -180,6 +180,45 @@ export class AndamentoService {
     }
   }
 
+      // Consulta o histórico de etapas e as observações de um pedido
+  async consultarHistorico(pedidoId: number, usuarioId: number) {
+    return this.prisma.$transaction(async (tx) => {
+      await this.garantirUsuarioAtivo(usuarioId, tx);
+
+      const pedido = await tx.pedido.findUnique({
+        where: { id: pedidoId },
+        select: {
+          id: true,
+          codigo: true,
+          situacao: true,
+          etapaAtual: { select: { id: true, nome: true, ordem: true } },
+          historicos: {
+            orderBy: { dataHora: 'asc' },
+            select: {
+              id: true,
+              dataHora: true,
+              etapa: { select: { id: true, nome: true, ordem: true } },
+              usuario: { select: { id: true, nome: true } },
+            },
+          },
+          observacoesEtapas: {
+            orderBy: { etapa: { ordem: 'asc' } },
+            select: {
+              etapaId: true,
+              observacao: true,
+              criadoEm: true,
+              atualizadoEm: true,
+            },
+          },
+        },
+      });
+
+      if (!pedido) {
+        throw new NotFoundException('Pedido não encontrado');
+      }
+      return pedido;
+    });
+  }
   // Verifica se o usuário existe e está ativo
   private async garantirUsuarioAtivo(
     usuarioId: number,
