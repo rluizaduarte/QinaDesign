@@ -12,6 +12,10 @@ const COLUNAS = ["Código", "Cliente", "Etapa atual", "Atualizado em"];
 const BORDA = (theme) =>
   `1px solid ${alpha(theme.palette.text.primary, 0.15)}`;
 
+// O botão "Editar" abre o acompanhamento das etapas do pedido.
+const hrefEtapas = (codigo) =>
+  `/tela-admin-etapas?codigo=${encodeURIComponent(codigo)}`;
+
 // Tabela de pedidos do painel. Em telas estreitas a tabela rola na horizontal
 // para manter as colunas legíveis.
 export default function TabelaPedidos({ pedidos }) {
@@ -107,10 +111,10 @@ export default function TabelaPedidos({ pedidos }) {
               <Box component="td" sx={{ textAlign: "right" }}>
                 <Button
                   component={Link}
-                  href={`/PaginaAdm/pedido/${encodeURIComponent(pedido.codigo)}`}
+                  href={hrefEtapas(pedido.codigo)}
                   variant="contained"
                   disableElevation
-                  aria-label={`Editar pedido ${pedido.codigo}`}
+                  aria-label={`Acompanhar as etapas do pedido ${pedido.codigo}`}
                   endIcon={<Pencil size={16} strokeWidth={1.75} />}
                   sx={{
                     height: 40,
