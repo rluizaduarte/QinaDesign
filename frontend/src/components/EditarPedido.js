@@ -82,12 +82,12 @@ export default function EditarPedido({ codigo }) {
   }, [codigo]);
 
   function irParaLista() {
-    router.push("/PaginaAdm");
+    router.push("/dashboard");
   }
 
   function irParaFiltro(valor) {
     router.push(
-      valor === "TODOS" ? "/PaginaAdm" : `/PaginaAdm?filtro=${valor}`
+      valor === "TODOS" ? "/dashboard" : `/dashboard?filtro=${valor}`,
     );
   }
 
@@ -175,7 +175,7 @@ export default function EditarPedido({ codigo }) {
 
             <Button
               component={Link}
-              href="/PaginaAdm"
+              href="/dashboard"
               variant="contained"
               disableElevation
               sx={{
@@ -350,11 +350,7 @@ function FormularioEdicao({ pedido, onSalvar, onCancelar }) {
         </Box>
 
         <Box>
-          <Box
-            component="label"
-            htmlFor="editar-observacao"
-            sx={ROTULO}
-          >
+          <Box component="label" htmlFor="editar-observacao" sx={ROTULO}>
             Observação (opcional)
           </Box>
           <Box
