@@ -25,6 +25,8 @@ const theme = createTheme({
     },
     background: {
       default: "#E4E3E0",
+      // cinza claro da paleta do GitHub, usado nos cards e superfícies
+      paper: "#F6F8FA",
     },
   },
   typography: {
