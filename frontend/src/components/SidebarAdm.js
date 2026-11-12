@@ -57,10 +57,6 @@ const BOTAO_BASE = {
   },
 };
 
-// estados dos itens de nav
-// ativo = fundo primary.light a 50%, texto a 100%
-// inativo = fundo a 0%, texto a 80%
-// hover = fundo a 25%, texto a 80% (aplicado apenas aos itens inativos)
 const estiloItemNav = (ativo) => ({
   ...BOTAO_BASE,
   bgcolor: (theme) => alpha(theme.palette.primary.light, ativo ? 0.5 : 0),
@@ -114,8 +110,6 @@ function NavSidebar({ rotulo, itens, valorAtivo, onSelecionar, ariaLabel }) {
   );
 }
 
-// ,enu lateral da área administrativa
-// a nav "Editar pedido" só é exibida quando um pedido ta aberto
 export default function SidebarAdm({
   filtro,
   onFiltro,
@@ -123,6 +117,8 @@ export default function SidebarAdm({
   secao,
   onSecao,
   mostrarEdicao = false,
+  usuario,
+  onSair,
 }) {
   return (
     <Box
@@ -135,14 +131,15 @@ export default function SidebarAdm({
         color: "secondary.main",
         px: 3,
         pt: `${ESPACO_BLOCOS}px`,
-        pb: 5,
+        pb: `${ESPACO_BLOCOS}px`,
         display: "flex",
         justifyContent: "center",
-        alignItems: "flex-start",
+        alignItems: "stretch",
       }}
     >
       {/* Coluna de 295px centralizada na sidebar; os elementos ficam
-          alinhados à esquerda dentro dela. */}
+          alinhados à esquerda dentro dela. O rodapé (usuário e "Sair") é
+          empurrado para o canto inferior pelo mt: auto. */}
       <Box
         sx={{
           width: LARGURA_CONTEUDO,
@@ -201,6 +198,46 @@ export default function SidebarAdm({
             valorAtivo={secao}
             onSelecionar={onSecao}
           />
+        )}
+
+        {usuario && (
+          <Box sx={{ mt: "auto", pt: `${ESPACO_BLOCOS}px` }}>
+            <Typography
+              sx={{
+                fontSize: 15,
+                fontWeight: 700,
+                lineHeight: 1,
+                color: "secondary.main",
+              }}
+            >
+              {usuario.nome}
+            </Typography>
+
+            <Typography
+              component="button"
+              type="button"
+              onClick={onSair}
+              sx={{
+                display: "block",
+                mt: "10px",
+                p: 0,
+                border: 0,
+                bgcolor: "transparent",
+                cursor: "pointer",
+                textDecoration: "underline",
+                fontFamily: "inherit",
+                fontSize: 13,
+                fontWeight: 300,
+                lineHeight: 1,
+                color: "secondary.main",
+                "&:hover": {
+                  color: (theme) => alpha(theme.palette.secondary.main, 0.8),
+                },
+              }}
+            >
+              Sair
+            </Typography>
+          </Box>
         )}
       </Box>
     </Box>
