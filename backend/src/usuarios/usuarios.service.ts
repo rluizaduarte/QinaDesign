@@ -30,14 +30,19 @@ export class UsuariosService {
     });
   }
 
-  async criar(dto: CriarUsuarioDto) {
+  async garantirEmailDisponivel(email: string, idIgnorado?: number) {
     const existente = await this.prisma.usuario.findUnique({
-      where: { email: dto.email },
+      where: { email },
       select: { id: true },
     });
-    if (existente) {
+
+    if (existente && existente.id !== idIgnorado) {
       throw new ConflictException('Já existe um usuário com este e-mail');
     }
+  }
+
+  async criar(dto: CriarUsuarioDto) {
+    await this.garantirEmailDisponivel(dto.email);
 
     return this.prisma.usuario.create({
       data: {
