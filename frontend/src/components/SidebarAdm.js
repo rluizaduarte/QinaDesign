@@ -1,51 +1,121 @@
 "use client";
 
+import Image from "next/image";
+import Link from "next/link";
 import Box from "@mui/material/Box";
 import ButtonBase from "@mui/material/ButtonBase";
 import Typography from "@mui/material/Typography";
 import { alpha } from "@mui/material/styles";
 import { Plus } from "lucide-react";
-import SidebarFiltros from "./SidebarFiltros";
+
+const LARGURA_SIDEBAR = 475;
+const LARGURA_CONTEUDO = 295;
+const ALTURA_BOTAO = 49;
+const ESPACO_BLOCOS = 30; // topo → logo → "Novo pedido" → navs
+const ESPACO_ITENS = 20; // label → botões e entre os botões de uma nav
+const LOGO = { largura: 166, altura: 40 };
+
+const FILTROS = [
+  { valor: "TODOS", rotulo: "Todos os pedidos" },
+  { valor: "EM_ANDAMENTO", rotulo: "Em andamento" },
+  { valor: "FINALIZADO", rotulo: "Finalizados" },
+];
 
 const SECOES_EDICAO = [
   { valor: "dados", rotulo: "Dados do pedido" },
   { valor: "etapas", rotulo: "Etapas" },
+  { valor: "financeiro", rotulo: "Financeiro" },
+  { valor: "documentos", rotulo: "Documentos" },
 ];
 
-const TITULO_SECAO = {
-  fontSize: "0.75rem",
+const ROTULO_NAV = {
+  display: "block",
+  mb: `${ESPACO_ITENS}px`,
+  fontSize: 12,
   fontWeight: 500,
-  letterSpacing: "0.15em",
+  lineHeight: 1,
   textTransform: "uppercase",
-  color: "secondary.main",
-  mb: 3,
+  color: (theme) => alpha(theme.palette.common.white, 0.5),
 };
 
-const estiloItem = (ativo) => ({
+const BOTAO_BASE = {
   width: "100%",
+  height: ALTURA_BOTAO,
+  px: "10px",
   justifyContent: "flex-start",
-  px: { xs: 2, md: 2.5 },
-  py: 2,
-  border: "1px solid",
-  borderColor: (theme) =>
-    alpha(theme.palette.secondary.main, ativo ? 0.55 : 0.3),
   borderRadius: "4px",
-  bgcolor: (theme) =>
-    ativo ? alpha(theme.palette.secondary.main, 0.14) : "transparent",
-  color: "inherit",
-  fontSize: { xs: "1rem", md: "1.05rem" },
-  fontWeight: ativo ? 500 : 400,
+  fontFamily: "inherit",
+  fontSize: 14,
+  fontWeight: 500,
+  lineHeight: 1,
   textAlign: "left",
-  transition: "background-color 0.2s ease, border-color 0.2s ease",
-  "&:hover": {
-    bgcolor: (theme) =>
-      alpha(theme.palette.secondary.main, ativo ? 0.18 : 0.08),
+  transition: "background-color 0.2s ease, color 0.2s ease",
+  "&.Mui-focusVisible": {
+    outline: "2px solid",
+    outlineColor: "secondary.main",
+    outlineOffset: 2,
   },
+};
+
+// estados dos itens de nav
+// ativo = fundo primary.light a 50%, texto a 100%
+// inativo = fundo a 0%, texto a 80%
+// hover = fundo a 25%, texto a 80% (aplicado apenas aos itens inativos)
+const estiloItemNav = (ativo) => ({
+  ...BOTAO_BASE,
+  bgcolor: (theme) => alpha(theme.palette.primary.light, ativo ? 0.5 : 0),
+  color: (theme) =>
+    ativo
+      ? theme.palette.secondary.main
+      : alpha(theme.palette.secondary.main, 0.8),
+  ...(!ativo && {
+    "&:hover": {
+      bgcolor: (theme) => alpha(theme.palette.primary.light, 0.25),
+    },
+  }),
 });
 
-// Menu lateral da área administrativa, compartilhado pela listagem e pela
-// página de edição. Na listagem mostra os filtros; na edição mostra também as
-// seções do pedido.
+function NavSidebar({ rotulo, itens, valorAtivo, onSelecionar, ariaLabel }) {
+  return (
+    <Box component="nav" aria-label={ariaLabel} sx={{ width: "100%" }}>
+      <Typography component="h2" sx={ROTULO_NAV}>
+        {rotulo}
+      </Typography>
+
+      <Box
+        component="ul"
+        sx={{
+          listStyle: "none",
+          m: 0,
+          p: 0,
+          display: "flex",
+          flexDirection: "column",
+          gap: `${ESPACO_ITENS}px`,
+        }}
+      >
+        {itens.map(({ valor, rotulo: texto }) => {
+          const ativo = valorAtivo === valor;
+
+          return (
+            <Box component="li" key={valor}>
+              <ButtonBase
+                type="button"
+                onClick={() => onSelecionar(valor)}
+                aria-current={ativo ? "page" : undefined}
+                sx={estiloItemNav(ativo)}
+              >
+                {texto}
+              </ButtonBase>
+            </Box>
+          );
+        })}
+      </Box>
+    </Box>
+  );
+}
+
+// ,enu lateral da área administrativa
+// a nav "Editar pedido" só é exibida quando um pedido ta aberto
 export default function SidebarAdm({
   filtro,
   onFiltro,
@@ -59,67 +129,80 @@ export default function SidebarAdm({
       component="aside"
       sx={{
         flexShrink: 0,
-        width: { xs: "100%", md: 400, lg: 450 },
+        width: { xs: "100%", md: LARGURA_SIDEBAR },
+        minHeight: { xs: "auto", md: "100vh" },
         bgcolor: "primary.dark",
         color: "secondary.main",
-        px: { xs: 3, md: 4 },
-        py: { xs: 4, md: 6 },
+        px: 3,
+        pt: `${ESPACO_BLOCOS}px`,
+        pb: 5,
+        display: "flex",
+        justifyContent: "center",
+        alignItems: "flex-start",
       }}
     >
-      <ButtonBase
-        type="button"
-        onClick={onNovoPedido}
+      {/* Coluna de 295px centralizada na sidebar; os elementos ficam
+          alinhados à esquerda dentro dela. */}
+      <Box
         sx={{
-          width: "100%",
-          height: { xs: 60, md: 68 },
-          px: { xs: 2, md: 2.5 },
-          justifyContent: "space-between",
-          border: "1px solid",
-          borderColor: (theme) =>
-            alpha(theme.palette.secondary.main, 0.35),
-          borderRadius: "4px",
-          bgcolor: (theme) => alpha(theme.palette.secondary.main, 0.06),
-          color: "secondary.main",
-          fontSize: { xs: "1rem", md: "1.05rem" },
-          transition: "background-color 0.2s ease",
-          "&:hover": {
-            bgcolor: (theme) => alpha(theme.palette.secondary.main, 0.12),
-          },
+          width: LARGURA_CONTEUDO,
+          maxWidth: "100%",
+          display: "flex",
+          flexDirection: "column",
+          alignItems: "flex-start",
+          gap: `${ESPACO_BLOCOS}px`,
         }}
       >
-        Novo pedido
-        <Plus size={22} strokeWidth={1.5} aria-hidden="true" />
-      </ButtonBase>
+        <Link
+          href="/"
+          aria-label="Qina Design - página inicial"
+          style={{ display: "inline-flex", lineHeight: 0 }}
+        >
+          <Image
+            src="/logo_horizontal-off-white.svg"
+            alt="Qina Design"
+            width={LOGO.largura}
+            height={LOGO.altura}
+            priority
+            style={{ width: LOGO.largura, height: LOGO.altura }}
+          />
+        </Link>
 
-      <Box sx={{ mt: 5 }}>
-        <SidebarFiltros filtro={filtro} onChange={onFiltro} />
+        <ButtonBase
+          type="button"
+          onClick={onNovoPedido}
+          sx={{
+            ...BOTAO_BASE,
+            justifyContent: "space-between",
+            bgcolor: (theme) => alpha(theme.palette.primary.light, 0.5),
+            color: "secondary.main",
+            "&:hover": {
+              bgcolor: (theme) => alpha(theme.palette.primary.light, 0.65),
+            },
+          }}
+        >
+          Novo pedido
+          <Plus size={20} strokeWidth={1.5} aria-hidden="true" />
+        </ButtonBase>
+
+        <NavSidebar
+          rotulo="Filtrar"
+          ariaLabel="Filtrar pedidos"
+          itens={FILTROS}
+          valorAtivo={filtro}
+          onSelecionar={onFiltro}
+        />
+
+        {mostrarEdicao && (
+          <NavSidebar
+            rotulo="Editar pedido"
+            ariaLabel="Seções do pedido"
+            itens={SECOES_EDICAO}
+            valorAtivo={secao}
+            onSelecionar={onSecao}
+          />
+        )}
       </Box>
-
-      {mostrarEdicao && (
-        <Box component="nav" aria-label="Editar pedido" sx={{ mt: 5 }}>
-          <Typography component="h2" sx={TITULO_SECAO}>
-            Editar pedido
-          </Typography>
-
-          <Box sx={{ display: "flex", flexDirection: "column", gap: 1.5 }}>
-            {SECOES_EDICAO.map(({ valor, rotulo }) => {
-              const ativo = secao === valor;
-
-              return (
-                <ButtonBase
-                  key={valor}
-                  type="button"
-                  onClick={() => onSecao(valor)}
-                  aria-current={ativo ? "page" : undefined}
-                  sx={estiloItem(ativo)}
-                >
-                  {rotulo}
-                </ButtonBase>
-              );
-            })}
-          </Box>
-        </Box>
-      )}
     </Box>
   );
 }

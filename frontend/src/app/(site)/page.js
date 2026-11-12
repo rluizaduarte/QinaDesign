@@ -1,9 +1,9 @@
 import Box from "@mui/material/Box";
 import Container from "@mui/material/Container";
-import Label from "../components/Label";
-import SectionTitle from "../components/SectionTitle";
-import SearchForm from "../components/SearchForm";
-import GhostButton from "../components/GhostButton";
+import Label from "../../components/Label";
+import SectionTitle from "../../components/SectionTitle";
+import SearchForm from "../../components/SearchForm";
+import GhostButton from "../../components/GhostButton";
 
 export default function Page() {
   return (

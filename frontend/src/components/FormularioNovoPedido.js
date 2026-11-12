@@ -1,63 +1,60 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import Box from "@mui/material/Box";
-import Button from "@mui/material/Button";
+import ButtonBase from "@mui/material/ButtonBase";
 import Dialog from "@mui/material/Dialog";
 import DialogContent from "@mui/material/DialogContent";
 import Typography from "@mui/material/Typography";
 import { alpha } from "@mui/material/styles";
-import { ChevronDown } from "lucide-react";
+import { Calendar, ChevronDown } from "lucide-react";
+import BotaoAcao from "./BotaoAcao";
+import Label from "./Label";
+import SectionTitle from "./SectionTitle";
+import {
+  BOTAO_NEUTRO,
+  CAMPO,
+  COR_PLACEHOLDER,
+  ICONE_CAMPO,
+  LARGURA_CAMPO,
+  TEXTAREA,
+  TITULO_CAMPO,
+} from "./EstilosCampo";
 import { ETAPAS_ADM } from "../lib/pedidosAdm";
 
-const CAMPO = {
-  width: "100%",
-  height: 50,
-  px: 2,
-  border: 0,
-  borderRadius: "2px",
-  bgcolor: "common.white",
-  color: "text.primary",
-  fontFamily: "inherit",
-  fontSize: "1rem",
-  fontWeight: 300,
-  "&:focus": {
-    outline: "2px solid",
-    outlineColor: "primary.light",
-    outlineOffset: 1,
-  },
-};
+const LARGURA_CAIXA = 550;
+const ALTURA_CAIXA = 609;
+const ESPACO_BLOCOS = 32;
+const ESPACO_CAMPOS = 20;
+const LARGURA_FAIXA_ICONE = 52;
 
-const ROTULO = {
-  display: "block",
-  mb: 1,
-  fontSize: "1rem",
-  fontWeight: 300,
-  color: "primary.dark",
-};
-
-const BOTAO = {
-  height: 48,
-  px: 3.5,
-  borderRadius: "4px",
-  fontSize: "0.95rem",
-  fontWeight: 500,
-  textTransform: "none",
-  boxShadow: "none",
-  "&:hover": { boxShadow: "none" },
-};
-
-// Modal de cadastro de um novo pedido na área administrativa.
-export default function FormularioNovoPedido({ aberto, onFechar, onCadastrar }) {
+export default function FormularioNovoPedido({
+  aberto,
+  onFechar,
+  onCadastrar,
+}) {
   const [nomeCliente, setNomeCliente] = useState("");
-  const [etapaAtual, setEtapaAtual] = useState(ETAPAS_ADM[0]);
+  const [etapaAtual, setEtapaAtual] = useState("");
   const [dataInicio, setDataInicio] = useState("");
   const [observacao, setObservacao] = useState("");
   const [erro, setErro] = useState("");
+  const dataRef = useRef(null);
+
+  function abrirCalendario() {
+    const campo = dataRef.current;
+    if (!campo) return;
+
+    try {
+      if (typeof campo.showPicker === "function") campo.showPicker();
+      else campo.focus();
+    } catch {
+      campo.focus();
+    }
+  }
 
   function limpar() {
     setNomeCliente("");
-    setEtapaAtual(ETAPAS_ADM[0]);
+    setEtapaAtual("");
     setDataInicio("");
     setObservacao("");
     setErro("");
@@ -79,7 +76,7 @@ export default function FormularioNovoPedido({ aberto, onFechar, onCadastrar }) 
 
     onCadastrar({
       nomeCliente: nome,
-      etapaAtual,
+      etapaAtual: etapaAtual || ETAPAS_ADM[0],
       dataInicio,
       observacao: observacao.trim(),
     });
@@ -91,61 +88,50 @@ export default function FormularioNovoPedido({ aberto, onFechar, onCadastrar }) 
     <Dialog
       open={aberto}
       onClose={fechar}
-      fullWidth
-      maxWidth={false}
       aria-labelledby="titulo-novo-pedido"
       slotProps={{
         paper: {
           sx: {
-            width: { xs: "100%", sm: 660 },
-            maxWidth: "100%",
+            width: LARGURA_CAIXA,
+            maxWidth: "calc(100% - 32px)",
+            minHeight: ALTURA_CAIXA,
             maxHeight: "calc(100% - 32px)",
-            m: { xs: 1, sm: 2 },
-            borderRadius: 0,
+            m: 2,
+            borderRadius: "4px",
             bgcolor: "background.default",
             backgroundImage: "none",
           },
         },
         backdrop: {
-          sx: {
-            bgcolor: (theme) => alpha(theme.palette.primary.dark, 0.55),
-          },
+          sx: { bgcolor: (theme) => alpha(theme.palette.primary.dark, 0.55) },
         },
       }}
     >
-      <DialogContent sx={{ p: { xs: 3, md: 5 } }}>
-        <Typography
-          component="p"
-          sx={{
-            fontSize: "0.75rem",
-            fontWeight: 500,
-            letterSpacing: "0.15em",
-            textTransform: "uppercase",
-            color: "primary.light",
-            mb: 1.5,
-          }}
-        >
-          Cadastrar novo pedido
-        </Typography>
-
-        <Typography
+      <DialogContent
+        component="form"
+        onSubmit={enviar}
+        noValidate
+        sx={{ p: { xs: 3, sm: "40px 48px" } }}
+      >
+        <Label>cadastrar novo pedido</Label>
+        <SectionTitle
           component="h2"
           id="titulo-novo-pedido"
-          sx={{
-            fontSize: { xs: "2rem", md: "2.5rem" },
-            fontWeight: 700,
-            lineHeight: 1.1,
-            letterSpacing: "-0.02em",
-            color: "text.primary",
-            mb: 4,
-          }}
+          sx={{ mb: `${ESPACO_BLOCOS}px` }}
         >
           Novo pedido
-        </Typography>
+        </SectionTitle>
 
-        <Box component="form" onSubmit={enviar}>
-          <Box sx={{ mb: 2.5 }}>
-            <Box component="label" htmlFor="novo-pedido-nome" sx={ROTULO}>
+        <Box
+          sx={{
+            display: "flex",
+            flexDirection: "column",
+            alignItems: "flex-start",
+            gap: `${ESPACO_CAMPOS}px`,
+          }}
+        >
+          <Box sx={{ width: "100%" }}>
+            <Box component="label" htmlFor="novo-pedido-nome" sx={TITULO_CAMPO}>
               Nome do cliente
             </Box>
             <Box
@@ -153,90 +139,125 @@ export default function FormularioNovoPedido({ aberto, onFechar, onCadastrar }) 
               id="novo-pedido-nome"
               type="text"
               value={nomeCliente}
+              maxLength={80}
+              autoFocus
               onChange={(event) => {
                 setNomeCliente(event.target.value);
                 if (erro) setErro("");
               }}
-              autoFocus
-              required
               aria-invalid={Boolean(erro)}
               aria-describedby={erro ? "erro-novo-pedido-nome" : undefined}
-              sx={{
-                ...CAMPO,
-                borderColor: erro ? "error.main" : "transparent",
-              }}
+              sx={{ ...CAMPO, ...(erro && { borderColor: "error.main" }) }}
             />
             {erro && (
               <Typography
                 id="erro-novo-pedido-nome"
                 role="alert"
-                sx={{ mt: 0.75, fontSize: "0.85rem", color: "error.main" }}
+                sx={{ mt: 1, fontSize: 13, color: "error.main" }}
               >
                 {erro}
               </Typography>
             )}
           </Box>
 
-          <Box sx={{ mb: 2.5, position: "relative" }}>
-            <Box component="label" htmlFor="novo-pedido-etapa" sx={ROTULO}>
+          <Box sx={{ width: "100%" }}>
+            <Box
+              component="label"
+              htmlFor="novo-pedido-etapa"
+              sx={TITULO_CAMPO}
+            >
               Etapa atual
             </Box>
-            <Box
-              component="select"
-              id="novo-pedido-etapa"
-              value={etapaAtual}
-              onChange={(event) => setEtapaAtual(event.target.value)}
-              sx={{
-                ...CAMPO,
-                pr: 6,
-                appearance: "none",
-                cursor: "pointer",
-              }}
-            >
-              {ETAPAS_ADM.map((nome, indice) => (
-                <option key={nome} value={nome}>
-                  {indice + 1}. {nome}
+            <Box sx={{ position: "relative", maxWidth: LARGURA_CAMPO }}>
+              <Box
+                component="select"
+                id="novo-pedido-etapa"
+                value={etapaAtual}
+                onChange={(event) => setEtapaAtual(event.target.value)}
+                sx={{
+                  ...CAMPO,
+                  pr: "44px",
+                  appearance: "none",
+                  cursor: "pointer",
+                  color: etapaAtual ? "text.primary" : COR_PLACEHOLDER,
+                }}
+              >
+                {/* Placeholder: a primeira etapa é a escolha padrão. */}
+                <option value="" hidden>
+                  1. {ETAPAS_ADM[0]}
                 </option>
-              ))}
-            </Box>
-            <Box
-              component="span"
-              sx={{
-                position: "absolute",
-                right: 16,
-                bottom: 15,
-                display: "flex",
-                pointerEvents: "none",
-                color: "primary.dark",
-              }}
-            >
-              <ChevronDown size={20} strokeWidth={1.5} aria-hidden="true" />
+                {ETAPAS_ADM.map((nome, indice) => (
+                  <option key={nome} value={nome}>
+                    {indice + 1}. {nome}
+                  </option>
+                ))}
+              </Box>
+              <Box component="span" sx={ICONE_CAMPO}>
+                <ChevronDown size={20} strokeWidth={1.5} aria-hidden="true" />
+              </Box>
             </Box>
           </Box>
 
-          <Box sx={{ mb: 2.5 }}>
-            <Box component="label" htmlFor="novo-pedido-data" sx={ROTULO}>
+          <Box sx={{ width: "100%" }}>
+            <Box component="label" htmlFor="novo-pedido-data" sx={TITULO_CAMPO}>
               Data de início
             </Box>
+
             <Box
-              component="input"
-              id="novo-pedido-data"
-              type="date"
-              value={dataInicio}
-              onChange={(event) => setDataInicio(event.target.value)}
-              required
+              onClick={abrirCalendario}
               sx={{
                 ...CAMPO,
-                "&::-webkit-calendar-picker-indicator": { cursor: "pointer" },
+                position: "relative",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "space-between",
+                cursor: "pointer",
+                "&:focus-within": {
+                  borderColor: "primary.main",
+                },
               }}
-            />
+            >
+              {/* Data exibida visualmente */}
+              <Typography
+                sx={{
+                  fontSize: 14,
+                  fontWeight: 500,
+                  color: dataInicio ? "text.primary" : COR_PLACEHOLDER,
+                }}
+              >
+                {dataInicio
+                  ? new Date(`${dataInicio}T00:00:00`).toLocaleDateString(
+                      "pt-BR",
+                    )
+                  : "dd/mm/aaaa"}
+              </Typography>
+
+              <Calendar size={20} strokeWidth={1.5} aria-hidden="true" />
+
+              {/* Input nativo invisível */}
+              <Box
+                component="input"
+                ref={dataRef}
+                id="novo-pedido-data"
+                type="date"
+                value={dataInicio}
+                onChange={(event) => setDataInicio(event.target.value)}
+                sx={{
+                  position: "absolute",
+                  width: 1,
+                  height: 1,
+                  opacity: 0,
+                  pointerEvents: "none",
+                }}
+              />
+            </Box>
           </Box>
 
-          <Box>
+          <Box sx={{ width: "100%" }}>
             <Box
               component="label"
               htmlFor="novo-pedido-observacao"
-              sx={ROTULO}
+              sx={TITULO_CAMPO}
             >
               Observação (opcional)
             </Box>
@@ -245,55 +266,23 @@ export default function FormularioNovoPedido({ aberto, onFechar, onCadastrar }) 
               id="novo-pedido-observacao"
               value={observacao}
               onChange={(event) => setObservacao(event.target.value)}
-              rows={4}
-              sx={{
-                ...CAMPO,
-                height: "auto",
-                minHeight: 110,
-                py: 1.5,
-                resize: "vertical",
-              }}
+              sx={TEXTAREA}
             />
           </Box>
+        </Box>
 
-          <Box
-            sx={{
-              display: "flex",
-              justifyContent: "flex-end",
-              flexWrap: "wrap",
-              gap: 1.5,
-              mt: 4,
-            }}
-          >
-            <Button
-              type="button"
-              onClick={fechar}
-              sx={{
-                ...BOTAO,
-                bgcolor: (theme) => alpha(theme.palette.text.primary, 0.06),
-                color: "primary.dark",
-                "&:hover": {
-                  bgcolor: (theme) => alpha(theme.palette.text.primary, 0.12),
-                },
-              }}
-            >
-              Cancelar
-            </Button>
-
-            <Button
-              type="submit"
-              variant="contained"
-              disableElevation
-              sx={{
-                ...BOTAO,
-                bgcolor: "primary.main",
-                color: "secondary.main",
-                "&:hover": { bgcolor: "primary.dark" },
-              }}
-            >
-              Cadastrar
-            </Button>
-          </Box>
+        <Box
+          sx={{
+            display: "flex",
+            justifyContent: "flex-end",
+            gap: "16px",
+            mt: `${ESPACO_BLOCOS}px`,
+          }}
+        >
+          <BotaoAcao type="button" onClick={fechar} sx={BOTAO_NEUTRO}>
+            Cancelar
+          </BotaoAcao>
+          <BotaoAcao type="submit">Cadastrar</BotaoAcao>
         </Box>
       </DialogContent>
     </Dialog>

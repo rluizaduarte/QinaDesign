@@ -1,17 +1,17 @@
 import Box from "@mui/material/Box";
 import Container from "@mui/material/Container";
 import Typography from "@mui/material/Typography";
-import Label from "../../../components/Label";
-import SectionTitle from "../../../components/SectionTitle";
-import SearchForm from "../../../components/SearchForm";
-import EtapaConcluida from "../../../components/EtapaConcluida";
-import EtapaAtual from "../../../components/EtapaAtual";
-import EtapaPendente from "../../../components/EtapaPendente";
+import Label from "../../../../components/Label";
+import SectionTitle from "../../../../components/SectionTitle";
+import SearchForm from "../../../../components/SearchForm";
+import EtapaConcluida from "../../../../components/EtapaConcluida";
+import EtapaAtual from "../../../../components/EtapaAtual";
+import EtapaPendente from "../../../../components/EtapaPendente";
 import {
   buscarPedido,
   formatarCriadoEm,
   formatarDataHora,
-} from "../../../lib/pedidos";
+} from "../../../../lib/pedidos";
 
 const MENSAGENS = {
   naoEncontrado:

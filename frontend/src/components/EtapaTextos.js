@@ -3,7 +3,27 @@
 import Typography from "@mui/material/Typography";
 import Box from "@mui/material/Box";
 
-export default function EtapaTextos({ nome, data, comentario, altura = 60 }) {
+const LINK = {
+  alignSelf: "flex-start",
+  p: 0,
+  border: 0,
+  bgcolor: "transparent",
+  cursor: "pointer",
+  textAlign: "left",
+  textDecoration: "underline",
+  fontFamily: "inherit",
+  fontSize: { xs: 12, md: 13 },
+  fontWeight: 300,
+  color: "primary.dark",
+};
+
+export default function EtapaTextos({
+  nome,
+  data,
+  comentario,
+  acao,
+  altura = 60,
+}) {
   return (
     <Box
       sx={{
@@ -37,25 +57,21 @@ export default function EtapaTextos({ nome, data, comentario, altura = 60 }) {
         </Typography>
       )}
 
-      {comentario && (
+      {acao ? (
         <Typography
           component="button"
           type="button"
-          sx={{
-            alignSelf: "flex-start",
-            p: 0,
-            border: 0,
-            bgcolor: "transparent",
-            cursor: "pointer",
-            textAlign: "left",
-            textDecoration: "underline",
-            fontSize: { xs: 12, md: 13 },
-            fontWeight: 300,
-            color: "primary.dark",
-          }}
+          onClick={acao.onClick}
+          sx={LINK}
         >
-          Visualizar comentário da etapa
+          {acao.rotulo}
         </Typography>
+      ) : (
+        comentario && (
+          <Typography component="button" type="button" sx={LINK}>
+            Visualizar comentário da etapa
+          </Typography>
+        )
       )}
     </Box>
   );

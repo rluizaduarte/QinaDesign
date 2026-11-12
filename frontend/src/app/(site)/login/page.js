@@ -2,8 +2,8 @@ import Box from "@mui/material/Box";
 import Container from "@mui/material/Container";
 import InputBase from "@mui/material/InputBase";
 import Typography from "@mui/material/Typography";
-import Label from "../../components/Label";
-import SectionTitle from "../../components/SectionTitle";
+import Label from "../../../components/Label";
+import SectionTitle from "../../../components/SectionTitle";
 
 const campos = [
   {

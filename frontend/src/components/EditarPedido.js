@@ -4,71 +4,33 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import Box from "@mui/material/Box";
-import Button from "@mui/material/Button";
+import ButtonBase from "@mui/material/ButtonBase";
 import Typography from "@mui/material/Typography";
-import { alpha } from "@mui/material/styles";
-import { ChevronDown } from "lucide-react";
-import EtapaAtual from "./EtapaAtual";
-import EtapaConcluida from "./EtapaConcluida";
-import EtapaPendente from "./EtapaPendente";
+import { ArrowLeft, SquarePen } from "lucide-react";
+import BotaoAcao from "./BotaoAcao";
 import FormularioNovoPedido from "./FormularioNovoPedido";
 import Label from "./Label";
+import SecaoEtapasAdm from "./SecaoEtapasAdm";
+import SectionTitle from "./SectionTitle";
 import SidebarAdm from "./SidebarAdm";
 import {
-  ETAPAS_ADM,
   atualizarPedidoAdm,
   buscarPedidoAdm,
   criarPedidoAdm,
 } from "../lib/pedidosAdm";
 import { formatarCriadoEm } from "../lib/pedidos";
+import { CAMPO, TEXTAREA, TITULO_CAMPO } from "./EstilosCampo";
 
-const CAMPO = {
-  width: "100%",
-  height: 50,
-  px: 2,
-  border: 0,
-  borderRadius: "2px",
-  bgcolor: "common.white",
-  color: "text.primary",
-  fontFamily: "inherit",
-  fontSize: "1rem",
-  fontWeight: 300,
-  "&:focus": {
-    outline: "2px solid",
-    outlineColor: "primary.light",
-    outlineOffset: 1,
-  },
-};
+const DISTANCIA_SIDEBAR = 115;
+const ESPACO_TOPO = 30;
+const ESPACO_BLOCOS = 32;
 
-const ROTULO = {
-  display: "block",
-  mb: 1,
-  fontSize: "1rem",
+const TEXTO_APOIO = {
+  fontSize: { xs: 14, md: 15 },
   fontWeight: 300,
   color: "primary.dark",
 };
 
-const BOTAO = {
-  height: 48,
-  px: 3.5,
-  borderRadius: "4px",
-  fontSize: "0.95rem",
-  fontWeight: 500,
-  textTransform: "none",
-  boxShadow: "none",
-  "&:hover": { boxShadow: "none" },
-};
-
-const TITULO_SECAO = {
-  fontSize: "clamp(1.75rem, 3vw, 2.5rem)",
-  fontWeight: 700,
-  lineHeight: 1.15,
-  letterSpacing: "-0.02em",
-  color: "text.primary",
-  mb: 3,
-};
-
-// Página de edição de um pedido, aberta pelo botão "Editar" da listagem.
 export default function EditarPedido({ codigo }) {
   const router = useRouter();
   const [pedido, setPedido] = useState(null);
@@ -105,15 +67,7 @@ export default function EditarPedido({ codigo }) {
   const criadoEm = formatarCriadoEm(pedido?.criadoEm);
 
   return (
-    <Box
-      sx={{
-        minHeight: "100vh",
-        // pt reserva espaço para o Header, que fica por cima da página
-        pt: 10,
-        display: "flex",
-        flexDirection: { xs: "column", md: "row" },
-      }}
-    >
+    <>
       <SidebarAdm
         filtro={null}
         onFiltro={irParaFiltro}
@@ -128,114 +82,83 @@ export default function EditarPedido({ codigo }) {
         sx={{
           flex: 1,
           minWidth: 0,
-          px: { xs: 3, md: 6, lg: 8 },
-          py: { xs: 4, md: 5 },
+          pl: { xs: 3, md: `${DISTANCIA_SIDEBAR}px` },
+          pr: 3,
+          pt: { xs: 4, md: `${ESPACO_TOPO}px` },
+          pb: 8,
         }}
       >
+        {/* Seta + label alinhadas ao topo (mesma altura da logo da sidebar);
+            o conjunto é o link de volta à dashboard. */}
+        <Box
+          component={Link}
+          href="/dashboard"
+          sx={{
+            display: "flex",
+            width: "fit-content",
+            alignItems: "center",
+            gap: "8px",
+            mb: 2,
+            textDecoration: "none",
+            color: "primary.light",
+            "&:hover": { color: "primary.dark" },
+          }}
+        >
+          <ArrowLeft size={8} strokeWidth={2.5} aria-hidden="true" />
+          <Label sx={{ mb: 0, color: "inherit" }}>
+            dashboard administrativo
+          </Label>
+        </Box>
+
         {!carregado && (
-          <Typography
-            sx={{
-              fontSize: { xs: 14, md: 15 },
-              fontWeight: 300,
-              color: "primary.dark",
-            }}
-          >
-            Carregando pedido...
-          </Typography>
+          <Typography sx={TEXTO_APOIO}>Carregando pedido...</Typography>
         )}
 
         {carregado && !pedido && (
           <Box sx={{ maxWidth: 720 }}>
-            <Label>pedido</Label>
-
-            <Typography
-              component="h1"
-              sx={{
-                fontSize: "clamp(2.5rem, 6vw, 4.5rem)",
-                fontWeight: 700,
-                lineHeight: 1,
-                letterSpacing: "-0.03em",
-                color: "text.primary",
-              }}
-            >
+            <SectionTitle component="h1" sx={{ mb: 2 }}>
               #{codigo}
-            </Typography>
-
-            <Typography
-              sx={{
-                mt: 2,
-                mb: 3,
-                fontSize: { xs: 14, md: 15 },
-                fontWeight: 300,
-                color: "primary.dark",
-              }}
-            >
+            </SectionTitle>
+            <Typography sx={{ ...TEXTO_APOIO, mb: 3 }}>
               Não encontramos nenhum pedido com esse código.
             </Typography>
-
-            <Button
-              component={Link}
-              href="/dashboard"
-              variant="contained"
-              disableElevation
-              sx={{
-                ...BOTAO,
-                bgcolor: "primary.main",
-                color: "secondary.main",
-                "&:hover": { bgcolor: "primary.dark" },
-              }}
-            >
+            <BotaoAcao component={Link} href="/dashboard">
               Voltar para a lista
-            </Button>
+            </BotaoAcao>
           </Box>
         )}
 
         {pedido && (
           <>
-            <Typography
+            <SectionTitle
               component="h1"
+              italic={criadoEm}
               sx={{
-                fontSize: "clamp(2.5rem, 6vw, 4.5rem)",
-                fontWeight: 700,
-                lineHeight: 1,
-                letterSpacing: "-0.03em",
-                color: "text.primary",
+                mb: `${ESPACO_BLOCOS}px`,
+                "& em": { fontSize: { xs: "1.1rem", md: "1.5rem" } },
               }}
             >
               #{pedido.codigo}
-            </Typography>
+            </SectionTitle>
 
-            {criadoEm && (
-              <Typography
-                component="p"
-                sx={{
-                  mt: 1.5,
-                  mb: { xs: 5, md: 7 },
-                  fontSize: "clamp(1.5rem, 3.4vw, 2.6rem)",
-                  fontWeight: 300,
-                  fontStyle: "italic",
-                  lineHeight: 1.15,
-                  color: "primary.dark",
-                }}
-              >
-                {criadoEm}
-              </Typography>
+            {secao === "dados" && (
+              <SecaoDados
+                key={pedido.codigo}
+                pedido={pedido}
+                onSalvar={salvarPedido}
+                onEditarEtapa={() => setSecao("etapas")}
+              />
             )}
 
-            <Box sx={{ maxWidth: 660 }}>
-              <Label>alteração do pedido</Label>
+            {secao === "etapas" && (
+              <SecaoEtapasAdm pedido={pedido} onAtualizar={setPedido} />
+            )}
 
-              {secao === "dados" ? (
-                <FormularioEdicao
-                  key={pedido.codigo}
-                  pedido={pedido}
-                  onSalvar={salvarPedido}
-                  onCancelar={irParaLista}
-                />
-              ) : (
-                <SecaoEtapas pedido={pedido} />
-              )}
-            </Box>
+            {(secao === "financeiro" || secao === "documentos") && (
+              <SecaoEmConstrucao
+                titulo={secao === "financeiro" ? "Financeiro" : "Documentos"}
+              />
+            )}
           </>
         )}
       </Box>
@@ -245,19 +168,14 @@ export default function EditarPedido({ codigo }) {
         onFechar={() => setNovoPedidoAberto(false)}
         onCadastrar={cadastrarPedido}
       />
-    </Box>
+    </>
   );
 }
 
-function FormularioEdicao({ pedido, onSalvar, onCancelar }) {
+function SecaoDados({ pedido, onSalvar, onEditarEtapa }) {
   const [nomeCliente, setNomeCliente] = useState(pedido.nomeCliente);
-  const [etapaAtual, setEtapaAtual] = useState(pedido.etapaAtual);
   const [observacao, setObservacao] = useState(pedido.observacao ?? "");
   const [erro, setErro] = useState("");
-
-  const etapas = ETAPAS_ADM.includes(pedido.etapaAtual)
-    ? ETAPAS_ADM
-    : [...ETAPAS_ADM, pedido.etapaAtual];
 
   function enviar(event) {
     event.preventDefault();
@@ -268,23 +186,26 @@ function FormularioEdicao({ pedido, onSalvar, onCancelar }) {
       return;
     }
 
-    onSalvar({
-      nomeCliente: nome,
-      etapaAtual,
-      observacao: observacao.trim() || null,
-      situacao: etapaAtual === "Finalização" ? "FINALIZADO" : "EM_ANDAMENTO",
-    });
+    onSalvar({ nomeCliente: nome, observacao: observacao.trim() || null });
   }
 
   return (
-    <>
-      <Typography component="h2" sx={TITULO_SECAO}>
+    <Box component="form" onSubmit={enviar} noValidate>
+      <Label>alteração do pedido</Label>
+      <SectionTitle component="h2" sx={{ mb: `${ESPACO_BLOCOS}px` }}>
         Dados do pedido
-      </Typography>
+      </SectionTitle>
 
-      <Box component="form" onSubmit={enviar}>
-        <Box sx={{ mb: 2.5 }}>
-          <Box component="label" htmlFor="editar-nome" sx={ROTULO}>
+      <Box
+        sx={{
+          display: "flex",
+          flexDirection: "column",
+          alignItems: "flex-start",
+          gap: `${ESPACO_BLOCOS}px`,
+        }}
+      >
+        <Box sx={{ width: "100%" }}>
+          <Box component="label" htmlFor="editar-nome" sx={TITULO_CAMPO}>
             Nome do cliente
           </Box>
           <Box
@@ -292,65 +213,75 @@ function FormularioEdicao({ pedido, onSalvar, onCancelar }) {
             id="editar-nome"
             type="text"
             value={nomeCliente}
+            maxLength={80}
             onChange={(event) => {
               setNomeCliente(event.target.value);
               if (erro) setErro("");
             }}
-            required
             aria-invalid={Boolean(erro)}
             aria-describedby={erro ? "erro-editar-nome" : undefined}
-            sx={{ ...CAMPO, borderColor: erro ? "error.main" : "transparent" }}
+            sx={{ ...CAMPO, ...(erro && { borderColor: "error.main" }) }}
           />
           {erro && (
             <Typography
               id="erro-editar-nome"
               role="alert"
-              sx={{ mt: 0.75, fontSize: "0.85rem", color: "error.main" }}
+              sx={{ mt: 1, fontSize: 13, color: "error.main" }}
             >
               {erro}
             </Typography>
           )}
         </Box>
 
-        <Box sx={{ mb: 2.5, position: "relative" }}>
-          <Box component="label" htmlFor="editar-etapa" sx={ROTULO}>
+        <Box sx={{ width: "100%" }}>
+          <Typography component="p" id="editar-etapa-titulo" sx={TITULO_CAMPO}>
             Etapa atual
-          </Box>
+          </Typography>
+          {/* Mesma caixa dos campos, mas somente leitura: o texto da etapa
+              à esquerda e o ícone de edição à direita, ambos dentro dela. */}
           <Box
-            component="select"
-            id="editar-etapa"
-            value={etapaAtual}
-            onChange={(event) => setEtapaAtual(event.target.value)}
             sx={{
               ...CAMPO,
-              pr: 6,
-              appearance: "none",
-              cursor: "pointer",
-            }}
-          >
-            {etapas.map((nome, indice) => (
-              <option key={nome} value={nome}>
-                {indice + 1}. {nome}
-              </option>
-            ))}
-          </Box>
-          <Box
-            component="span"
-            sx={{
-              position: "absolute",
-              right: 16,
-              bottom: 15,
               display: "flex",
-              pointerEvents: "none",
-              color: "primary.dark",
+              alignItems: "center",
+              justifyContent: "space-between",
+              gap: 2,
+              pr: "16px",
             }}
           >
-            <ChevronDown size={20} strokeWidth={1.5} aria-hidden="true" />
+            <Typography
+              aria-labelledby="editar-etapa-titulo"
+              sx={{
+                minWidth: 0,
+                fontSize: 14,
+                fontWeight: 500,
+                color: "text.primary",
+                overflow: "hidden",
+                textOverflow: "ellipsis",
+                whiteSpace: "nowrap",
+              }}
+            >
+              {pedido.etapaAtual}
+            </Typography>
+
+            <ButtonBase
+              type="button"
+              onClick={onEditarEtapa}
+              aria-label="Alterar a etapa atual"
+              sx={{
+                flexShrink: 0,
+                borderRadius: "4px",
+                color: "text.primary",
+                "&:hover": { color: "primary.main" },
+              }}
+            >
+              <SquarePen size={20} strokeWidth={1.5} aria-hidden="true" />
+            </ButtonBase>
           </Box>
         </Box>
 
-        <Box>
-          <Box component="label" htmlFor="editar-observacao" sx={ROTULO}>
+        <Box sx={{ width: "100%" }}>
+          <Box component="label" htmlFor="editar-observacao" sx={TITULO_CAMPO}>
             Observação (opcional)
           </Box>
           <Box
@@ -358,84 +289,24 @@ function FormularioEdicao({ pedido, onSalvar, onCancelar }) {
             id="editar-observacao"
             value={observacao}
             onChange={(event) => setObservacao(event.target.value)}
-            rows={4}
-            sx={{
-              ...CAMPO,
-              height: "auto",
-              minHeight: 110,
-              py: 1.5,
-              resize: "vertical",
-            }}
+            sx={TEXTAREA}
           />
         </Box>
 
-        <Box
-          sx={{
-            display: "flex",
-            justifyContent: "flex-end",
-            flexWrap: "wrap",
-            gap: 1.5,
-            mt: 4,
-          }}
-        >
-          <Button
-            type="button"
-            onClick={onCancelar}
-            sx={{
-              ...BOTAO,
-              bgcolor: (theme) => alpha(theme.palette.text.primary, 0.06),
-              color: "primary.dark",
-              "&:hover": {
-                bgcolor: (theme) => alpha(theme.palette.text.primary, 0.12),
-              },
-            }}
-          >
-            Cancelar
-          </Button>
-
-          <Button
-            type="submit"
-            variant="contained"
-            disableElevation
-            sx={{
-              ...BOTAO,
-              bgcolor: "primary.main",
-              color: "secondary.main",
-              "&:hover": { bgcolor: "primary.dark" },
-            }}
-          >
-            Salvar alterações
-          </Button>
-        </Box>
+        <BotaoAcao type="submit">Salvar alterações</BotaoAcao>
       </Box>
-    </>
+    </Box>
   );
 }
 
-function SecaoEtapas({ pedido }) {
-  const indiceAtual = ETAPAS_ADM.indexOf(pedido.etapaAtual);
-
+function SecaoEmConstrucao({ titulo }) {
   return (
     <>
-      <Typography component="h2" sx={TITULO_SECAO}>
-        Etapas
-      </Typography>
-
-      <Box>
-        {ETAPAS_ADM.map((nome, indice) => {
-          const ultima = indice === ETAPAS_ADM.length - 1;
-
-          if (indice < indiceAtual) {
-            return <EtapaConcluida key={nome} nome={nome} ultima={ultima} />;
-          }
-
-          if (indice === indiceAtual) {
-            return <EtapaAtual key={nome} nome={nome} ultima={ultima} />;
-          }
-
-          return <EtapaPendente key={nome} nome={nome} ultima={ultima} />;
-        })}
-      </Box>
+      <Label>alteração do pedido</Label>
+      <SectionTitle component="h2" sx={{ mb: 2 }}>
+        {titulo}
+      </SectionTitle>
+      <Typography sx={TEXTO_APOIO}>Seção em construção.</Typography>
     </>
   );
 }

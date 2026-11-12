@@ -1,27 +1,29 @@
 import Box from "@mui/material/Box";
 import Typography from "@mui/material/Typography";
+import { alpha } from "@mui/material/styles";
 
-// Cartão de indicador exibido no topo do painel (total, em andamento e finalizados).
+// card de indicadores da dashboard: 215 x 90, fundo primary.dark a 10%
 export default function CartaoResumo({ valor, rotulo }) {
   return (
     <Box
       sx={{
-        bgcolor: "background.paper",
-        px: { xs: 2.5, md: 3 },
-        py: { xs: 2, md: 2.5 },
-        minHeight: { xs: 84, md: 98 },
+        height: 90,
+        px: "20px",
+        borderRadius: "4px",
+        bgcolor: (theme) => alpha(theme.palette.primary.dark, 0.1),
         display: "flex",
         flexDirection: "column",
         justifyContent: "center",
-        gap: 0.5,
+        alignItems: "flex-start",
+        gap: "10px",
       }}
     >
       <Typography
         component="p"
         sx={{
-          fontSize: { xs: "1.5rem", md: "1.75rem" },
+          fontSize: 22,
           fontWeight: 400,
-          lineHeight: 1.1,
+          lineHeight: 1,
           color: "text.primary",
         }}
       >
@@ -31,9 +33,10 @@ export default function CartaoResumo({ valor, rotulo }) {
       <Typography
         component="p"
         sx={{
-          fontSize: { xs: "0.95rem", md: "1rem" },
+          fontSize: 14,
           fontWeight: 300,
-          color: "primary.dark",
+          lineHeight: 1,
+          color: "text.primary",
         }}
       >
         {rotulo}

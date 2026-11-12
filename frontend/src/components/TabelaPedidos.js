@@ -2,143 +2,121 @@
 
 import Link from "next/link";
 import Box from "@mui/material/Box";
-import Button from "@mui/material/Button";
 import Typography from "@mui/material/Typography";
-import { alpha } from "@mui/material/styles";
-import { Pencil } from "lucide-react";
+import { Eraser } from "lucide-react";
+import BotaoAcao from "./BotaoAcao";
 
-const COLUNAS = ["Código", "Cliente", "Etapa atual", "Atualizado em"];
+const LARGURA_BOTAO = 76;
 
-const BORDA = (theme) =>
-  `1px solid ${alpha(theme.palette.text.primary, 0.15)}`;
+// larguras das colunas dentro dos 709px da listagem
+// a última coluna tem largura fixa igual do botão "Editar"
+const COLUNAS = [
+  { titulo: "Código", largura: 78 },
+  { titulo: "Cliente", largura: 150 },
+  { titulo: "Etapa atual", largura: 280 },
+  { titulo: "Atualizado em", largura: 125 },
+];
 
-// O botão "Editar" abre o acompanhamento das etapas do pedido.
-const hrefEtapas = (codigo) =>
-  `/tela-admin-etapas?codigo=${encodeURIComponent(codigo)}`;
+const BORDA = (theme) => `1px solid ${theme.palette.primary.light}`;
 
-// Tabela de pedidos do painel. Em telas estreitas a tabela rola na horizontal
-// para manter as colunas legíveis.
+const CELULA_TRUNCADA = {
+  overflow: "hidden",
+  textOverflow: "ellipsis",
+  whiteSpace: "nowrap",
+};
+
+const hrefEdicao = (codigo) =>
+  `/dashboard/pedido/${encodeURIComponent(codigo)}`;
+
 export default function TabelaPedidos({ pedidos }) {
   if (pedidos.length === 0) {
     return (
-      <Typography
-        sx={{
-          mt: { xs: 4, md: 5 },
-          fontSize: { xs: 14, md: 15 },
-          fontWeight: 300,
-          color: "primary.dark",
-        }}
-      >
+      <Typography sx={{ fontSize: 13, fontWeight: 300, color: "primary.dark" }}>
         Nenhum pedido encontrado para os filtros selecionados.
       </Typography>
     );
   }
 
   return (
-    <Box sx={{ mt: { xs: 4, md: 5 }, overflowX: "auto" }}>
-      <Box
-        component="table"
-        sx={{
-          width: "100%",
-          minWidth: 720,
-          borderCollapse: "collapse",
-          textAlign: "left",
-        }}
-      >
-        <Box component="thead">
-          <Box component="tr">
-            {COLUNAS.map((coluna, indice) => (
-              <Box
-                component="th"
-                key={coluna}
-                scope="col"
-                sx={{
-                  pb: 2,
-                  width: ["12%", "20%", "36%", "20%"][indice],
-                  borderBottom: BORDA,
-                  fontSize: { xs: 14, md: 15 },
-                  fontWeight: 400,
-                  color: "primary.light",
-                  whiteSpace: "nowrap",
-                }}
-              >
-                {coluna}
-              </Box>
-            ))}
+    <Box
+      component="table"
+      sx={{
+        width: "100%",
+        tableLayout: "fixed",
+        borderCollapse: "collapse",
+        textAlign: "left",
+        fontSize: 13,
+        color: "primary.dark",
+        "& th, & td": { borderBottom: BORDA, pr: 2 },
+        "& th": { py: "12px", fontWeight: 300, whiteSpace: "nowrap" },
+        "& td": { height: 59, fontWeight: 400, verticalAlign: "middle" },
+        "& th:last-of-type, & td:last-of-type": { pr: 0 },
+      }}
+    >
+      <colgroup>
+        {COLUNAS.map(({ titulo, largura }) => (
+          <col key={titulo} style={{ width: largura }} />
+        ))}
+        <col style={{ width: LARGURA_BOTAO }} />
+      </colgroup>
 
-            <Box
-              component="th"
-              scope="col"
-              aria-label="Ações"
-              sx={{ pb: 2, width: "12%", borderBottom: BORDA }}
-            />
-          </Box>
-        </Box>
-
-        <Box component="tbody">
-          {pedidos.map((pedido) => (
-            <Box
-              component="tr"
-              key={pedido.codigo}
-              sx={{
-                "& td": {
-                  py: 2,
-                  pr: 2,
-                  borderBottom: BORDA,
-                  fontSize: { xs: 14, md: 15 },
-                  fontWeight: 400,
-                  color: "primary.dark",
-                  verticalAlign: "middle",
-                },
-                "& td:last-of-type": { pr: 0 },
-              }}
-            >
-              <Box
-                component="td"
-                sx={{ fontWeight: 700, color: "text.primary", whiteSpace: "nowrap" }}
-              >
-                #{pedido.codigo}
-              </Box>
-
-              <Box component="td">{pedido.nomeCliente}</Box>
-
-              <Box component="td">{pedido.etapaAtual}</Box>
-
-              <Box component="td" sx={{ whiteSpace: "nowrap" }}>
-                {pedido.atualizadoEm}
-              </Box>
-
-              <Box component="td" sx={{ textAlign: "right" }}>
-                <Button
-                  component={Link}
-                  href={hrefEtapas(pedido.codigo)}
-                  variant="contained"
-                  disableElevation
-                  aria-label={`Acompanhar as etapas do pedido ${pedido.codigo}`}
-                  endIcon={<Pencil size={16} strokeWidth={1.75} />}
-                  sx={{
-                    height: 40,
-                    minWidth: 100,
-                    px: 2.5,
-                    bgcolor: "primary.main",
-                    color: "secondary.main",
-                    borderRadius: "4px",
-                    fontSize: "0.95rem",
-                    fontWeight: 500,
-                    textTransform: "none",
-                    boxShadow: "none",
-                    "&:hover": {
-                      bgcolor: "primary.dark",
-                      boxShadow: "none",
-                    },
-                  }}
-                >
-                  Editar
-                </Button>
-              </Box>
+      <Box component="thead">
+        <Box component="tr">
+          {COLUNAS.map(({ titulo }) => (
+            <Box component="th" key={titulo} scope="col">
+              {titulo}
             </Box>
           ))}
+          <Box component="th" scope="col" aria-label="Ações" />
         </Box>
+      </Box>
+
+      <Box component="tbody">
+        {pedidos.map((pedido) => (
+          <Box component="tr" key={pedido.codigo}>
+            <Box
+              component="td"
+              sx={{
+                ...CELULA_TRUNCADA,
+                fontWeight: 700,
+                color: "text.primary",
+              }}
+            >
+              #{pedido.codigo}
+            </Box>
+
+            <Box component="td" title={pedido.nomeCliente} sx={CELULA_TRUNCADA}>
+              {pedido.nomeCliente}
+            </Box>
+
+            <Box component="td" title={pedido.etapaAtual} sx={CELULA_TRUNCADA}>
+              {pedido.etapaAtual}
+            </Box>
+
+            <Box component="td" sx={CELULA_TRUNCADA}>
+              {pedido.atualizadoEm}
+            </Box>
+
+            <Box component="td">
+              <BotaoAcao
+                component={Link}
+                href={hrefEdicao(pedido.codigo)}
+                aria-label={`Editar o pedido ${pedido.codigo}`}
+                endIcon={
+                  <Eraser size={16} strokeWidth={1.5} aria-hidden="true" />
+                }
+                sx={{
+                  width: LARGURA_BOTAO,
+                  px: "10px",
+                  justifyContent: "space-between",
+                  "& .MuiButton-endIcon": { ml: 0 },
+                }}
+              >
+                Editar
+              </BotaoAcao>
+            </Box>
+          </Box>
+        ))}
       </Box>
     </Box>
   );

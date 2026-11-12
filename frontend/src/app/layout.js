@@ -1,4 +1,3 @@
-import "./globals.css";
 import localFont from "next/font/local";
 import AppThemeProvider from "../ThemeProvider";
 

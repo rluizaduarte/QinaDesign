@@ -4,15 +4,10 @@ import Box from "@mui/material/Box";
 import Typography from "@mui/material/Typography";
 import { alpha } from "@mui/material/styles";
 
-// Diâmetro dos círculos numerados, no tamanho do protótipo (60 x 60).
-const TAMANHO = 60;
-
-// Linha de ligação entre as etapas: tracejada antes das etapas futuras.
-const estiloLinha = (situacao) => ({
-  flex: 1,
-  borderTop: situacao === "PENDENTE" ? "1px dashed" : "1px solid",
-  borderColor: (theme) => alpha(theme.palette.text.primary, 0.2),
-});
+// Diâmetros dos círculos numerados: 60 nas etapas anteriores e posteriores,
+// 70 na etapa atual.
+export const TAMANHO_CIRCULO = { padrao: 60, atual: 70 };
+const LARGURA_ETAPA = 215; // três etapas visíveis nos 645px da trilha
 
 const estiloCirculo = (situacao) => {
   if (situacao === "ATUAL") {
@@ -21,7 +16,9 @@ const estiloCirculo = (situacao) => {
 
   if (situacao === "CONCLUIDA") {
     return {
-      bgcolor: (theme) => alpha(theme.palette.secondary.main, 0.55),
+      border: "1px solid",
+      borderColor: (theme) => alpha(theme.palette.primary.light, 0.5),
+      bgcolor: (theme) => alpha(theme.palette.primary.dark, 0.1),
       color: "primary.light",
     };
   }
@@ -33,63 +30,97 @@ const estiloCirculo = (situacao) => {
   };
 };
 
-const corDoNome = (situacao) =>
-  situacao === "PENDENTE"
-    ? (theme) => alpha(theme.palette.text.primary, 0.45)
-    : "text.primary";
+// Linha de ligação: tracejada nos trechos que levam a etapas futuras.
+const estiloLinha = (tracejada) => ({
+  flex: 1,
+  borderTop: tracejada ? "1px dashed" : "1px solid",
+  borderColor: (theme) => alpha(theme.palette.text.primary, 0.2),
+});
 
-// Uma etapa da trilha horizontal: círculo numerado, linhas de ligação e, abaixo,
-// o nome, a data, o comentário salvo e o link "Comentar" (etapa atual).
+// Círculo numerado isolado, reutilizado no modo de comentário.
+export function CirculoEtapa({ numero, situacao }) {
+  const tamanho =
+    situacao === "ATUAL" ? TAMANHO_CIRCULO.atual : TAMANHO_CIRCULO.padrao;
+
+  return (
+    <Box
+      sx={{
+        width: tamanho,
+        height: tamanho,
+        flexShrink: 0,
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        borderRadius: "50%",
+        fontSize: situacao === "ATUAL" ? 22 : 20,
+        fontWeight: 500,
+        ...estiloCirculo(situacao),
+      }}
+    >
+      {numero}
+    </Box>
+  );
+}
+
+// Uma etapa da trilha horizontal: círculo numerado com as linhas de ligação
+// e, abaixo, o nome, a data e (na etapa atual) a ação de comentar.
 export default function EtapaCirculoAdm({
   numero,
   nome,
   situacao,
   data,
-  comentario,
-  onComentar,
+  acao,
   refAtual,
 }) {
+  const pendente = situacao === "PENDENTE";
+
   return (
     <Box
       ref={refAtual}
       sx={{
         flex: "0 0 auto",
-        width: { xs: 168, md: 220 },
+        width: LARGURA_ETAPA,
         display: "flex",
         flexDirection: "column",
         alignItems: "center",
       }}
     >
-      <Box sx={{ display: "flex", alignItems: "center", width: "100%" }}>
-        <Box sx={estiloLinha(situacao)} />
-
-        <Box
-          sx={{
-            width: TAMANHO,
-            height: TAMANHO,
-            flexShrink: 0,
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            borderRadius: "50%",
-            fontSize: 20,
-            ...estiloCirculo(situacao),
-          }}
-        >
-          {numero}
-        </Box>
-
-        <Box sx={estiloLinha(situacao)} />
+      {/* Altura fixa de 70px: os círculos de 60 e 70 ficam alinhados pelo
+          centro, e as linhas passam sempre na mesma altura. */}
+      <Box
+        sx={{
+          display: "flex",
+          alignItems: "center",
+          width: "100%",
+          height: TAMANHO_CIRCULO.atual,
+        }}
+      >
+        <Box sx={estiloLinha(pendente)} />
+        <CirculoEtapa numero={numero} situacao={situacao} />
+        <Box sx={estiloLinha(situacao !== "CONCLUIDA")} />
       </Box>
 
-      <Box sx={{ mt: 2, px: 1, minWidth: 0, textAlign: "center" }}>
+      <Box
+        sx={{
+          mt: 2,
+          px: 1,
+          minWidth: 0,
+          display: "flex",
+          flexDirection: "column",
+          alignItems: "center",
+          textAlign: "center",
+        }}
+      >
         <Typography
           sx={{
-            fontSize: { xs: 14, md: 16 },
+            fontSize: 15,
             fontWeight: 700,
             lineHeight: 1.25,
             overflowWrap: "anywhere",
-            color: corDoNome(situacao),
+            color: (theme) =>
+              pendente
+                ? alpha(theme.palette.text.primary, 0.45)
+                : theme.palette.text.primary,
           }}
         >
           {nome}
@@ -99,7 +130,7 @@ export default function EtapaCirculoAdm({
           <Typography
             sx={{
               mt: 0.5,
-              fontSize: { xs: 12, md: 13 },
+              fontSize: 13,
               fontWeight: 300,
               color: (theme) => alpha(theme.palette.text.primary, 0.7),
             }}
@@ -108,41 +139,25 @@ export default function EtapaCirculoAdm({
           </Typography>
         )}
 
-        {comentario && (
-          <Typography
-            sx={{
-              mt: 0.5,
-              fontSize: { xs: 12, md: 13 },
-              fontWeight: 300,
-              fontStyle: "italic",
-              overflowWrap: "anywhere",
-              color: "primary.dark",
-            }}
-          >
-            “{comentario}”
-          </Typography>
-        )}
-
-        {onComentar && (
+        {acao && (
           <Typography
             component="button"
             type="button"
-            onClick={onComentar}
+            onClick={acao.onClick}
             sx={{
               mt: 0.5,
               p: 0,
               border: 0,
               bgcolor: "transparent",
               cursor: "pointer",
-              textAlign: "center",
               textDecoration: "underline",
               fontFamily: "inherit",
-              fontSize: { xs: 12, md: 13 },
+              fontSize: 13,
               fontWeight: 300,
               color: "primary.dark",
             }}
           >
-            Comentar
+            {acao.rotulo}
           </Typography>
         )}
       </Box>
