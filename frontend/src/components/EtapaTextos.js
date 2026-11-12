@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import Typography from "@mui/material/Typography";
 import Box from "@mui/material/Box";
 
@@ -24,6 +25,8 @@ export default function EtapaTextos({
   acao,
   altura = 60,
 }) {
+  const [comentarioAberto, setComentarioAberto] = useState(false);
+
   return (
     <Box
       sx={{
@@ -68,9 +71,36 @@ export default function EtapaTextos({
         </Typography>
       ) : (
         comentario && (
-          <Typography component="button" type="button" sx={LINK}>
-            Visualizar comentário da etapa
-          </Typography>
+          <>
+            <Typography
+              component="button"
+              type="button"
+              onClick={() => setComentarioAberto((aberto) => !aberto)}
+              aria-expanded={comentarioAberto}
+              sx={LINK}
+            >
+              {comentarioAberto
+                ? "Ocultar comentário da etapa"
+                : "Visualizar comentário da etapa"}
+            </Typography>
+
+            {comentarioAberto && (
+              <Typography
+                sx={{
+                  mt: 0.5,
+                  maxWidth: 520,
+                  fontSize: { xs: 12, md: 13 },
+                  fontWeight: 300,
+                  fontStyle: "italic",
+                  lineHeight: 1.4,
+                  overflowWrap: "anywhere",
+                  color: "primary.dark",
+                }}
+              >
+                “{comentario}”
+              </Typography>
+            )}
+          </>
         )
       )}
     </Box>

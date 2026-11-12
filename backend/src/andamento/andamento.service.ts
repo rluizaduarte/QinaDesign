@@ -1,4 +1,3 @@
-
 import {
   BadRequestException,
   ConflictException,
@@ -24,16 +23,11 @@ export class AndamentoService {
         // 1. Verifica se o funcionário existe e está ativo
         await this.garantirUsuarioAtivo(usuarioId, tx);
 
-        // 2. Busca o pedido e impede alterações se estiver finalizado
-        const pedido = await this.buscarPedidoEmAndamento(
-          pedidoId,
-          tx,
-        );
+        // 2. Busca o pedido (finalizado também pode retroceder)
+        const pedido = await this.buscarPedido(pedidoId, tx);
 
         if (pedido.etapaAtualId === null) {
-          throw new BadRequestException(
-            'O pedido não possui uma etapa atual',
-          );
+          throw new BadRequestException('O pedido não possui uma etapa atual');
         }
 
         // 3. Valida se a mudança é de apenas uma etapa
@@ -43,7 +37,7 @@ export class AndamentoService {
           tx,
         );
 
-        // 4. Finaliza automaticamente se for a última etapa
+        // 4. Finaliza na última etapa; ao retroceder, volta a EM_ANDAMENTO
         const novaSituacao = novaEtapa.ultimaEtapa
           ? 'FINALIZADO'
           : 'EM_ANDAMENTO';
@@ -53,9 +47,8 @@ export class AndamentoService {
           where: {
             id: pedidoId,
             etapaAtualId: pedido.etapaAtualId,
-            situacao: 'EM_ANDAMENTO',
-            dataUltimaAtualizacao:
-              pedido.dataUltimaAtualizacao,
+            situacao: pedido.situacao,
+            dataUltimaAtualizacao: pedido.dataUltimaAtualizacao,
           },
           data: {
             etapaAtualId: novaEtapaId,
@@ -139,10 +132,9 @@ export class AndamentoService {
 
         // A edição participa da versão do pedido usada nas transições.
         // Avança ao menos 1 ms para não reutilizar o timestamp lido.
-        const dataUltimaAtualizacao = new Date(Math.max(
-          Date.now(),
-          pedido.dataUltimaAtualizacao.getTime() + 1,
-        ));
+        const dataUltimaAtualizacao = new Date(
+          Math.max(Date.now(), pedido.dataUltimaAtualizacao.getTime() + 1),
+        );
         const resultado = await tx.pedido.updateMany({
           where: {
             id: pedidoId,
@@ -180,7 +172,7 @@ export class AndamentoService {
     }
   }
 
-      // Consulta o histórico de etapas e as observações de um pedido
+  // Consulta o histórico de etapas e as observações de um pedido
   async consultarHistorico(pedidoId: number, usuarioId: number) {
     return this.prisma.$transaction(async (tx) => {
       await this.garantirUsuarioAtivo(usuarioId, tx);
@@ -240,11 +232,8 @@ export class AndamentoService {
     }
   }
 
-  // Verifica se o pedido existe e não está finalizado
-  private async buscarPedidoEmAndamento(
-    pedidoId: number,
-    tx: Prisma.TransactionClient,
-  ) {
+  // Verifica se o pedido existe
+  private async buscarPedido(pedidoId: number, tx: Prisma.TransactionClient) {
     const pedido = await tx.pedido.findUnique({
       where: { id: pedidoId },
       include: { etapaAtual: true },
@@ -254,12 +243,9 @@ export class AndamentoService {
       throw new NotFoundException('Pedido não encontrado');
     }
 
-    if (pedido.situacao === 'FINALIZADO') {
-      throw new ForbiddenException(
-        'Não é permitido alterar um pedido finalizado',
-      );
-    }
-
+    // Um pedido finalizado pode retroceder para a penúltima etapa; a
+    // validação de ±1 etapa (validarTransicao) garante que, estando na
+    // última, só a penúltima é alcançável.
     return pedido;
   }
 
@@ -274,13 +260,9 @@ export class AndamentoService {
       select: { id: true, ordem: true },
     });
 
-    const indiceAtual = etapas.findIndex(
-      (etapa) => etapa.id === etapaAtualId,
-    );
+    const indiceAtual = etapas.findIndex((etapa) => etapa.id === etapaAtualId);
 
-    const indiceNova = etapas.findIndex(
-      (etapa) => etapa.id === novaEtapaId,
-    );
+    const indiceNova = etapas.findIndex((etapa) => etapa.id === novaEtapaId);
 
     if (indiceAtual === -1 || indiceNova === -1) {
       throw new NotFoundException(

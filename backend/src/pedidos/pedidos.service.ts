@@ -1,11 +1,11 @@
 import {
-  ConflictException,
+  BadRequestException,
   ForbiddenException,
   Injectable,
   InternalServerErrorException,
   NotFoundException,
 } from '@nestjs/common';
-import { randomBytes } from 'crypto';
+import { randomInt } from 'crypto';
 import { Prisma } from '../generated/prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { CriarPedidoDto } from './dto/criar-pedido.dto';
@@ -14,27 +14,55 @@ import { ListarPedidosQueryDto } from './dto/listar-pedidos-query.dto';
 
 export type StatusEtapa = 'CONCLUIDA' | 'ATUAL' | 'PENDENTE';
 
+const CODIGO_MIN = 10000;
+const CODIGO_MAX = 99999;
+const MAX_TENTATIVAS = 10;
 
-const ALFABETO = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
-const MAX_TENTATIVAS = 5;
+const INCLUDE_LISTAGEM = {
+  etapaAtual: { select: { id: true, nome: true, ordem: true } },
+} satisfies Prisma.PedidoInclude;
 
 @Injectable()
 export class PedidosService {
   constructor(private readonly prisma: PrismaService) {}
 
-  //  CADASTRAR 
   async criar(dto: CriarPedidoDto, usuarioId: number) {
     await this.garantirUsuarioAtivo(usuarioId);
 
-    const etapaInicial = await this.prisma.etapa.findFirst({
+    const etapas = await this.prisma.etapa.findMany({
       orderBy: { ordem: 'asc' },
+      select: { id: true, ordem: true },
     });
 
-  if (!etapaInicial) {
-    throw new InternalServerErrorException(
-      'Não há etapas cadastradas para iniciar o pedido',
-     );
-}
+    if (etapas.length === 0) {
+      throw new InternalServerErrorException(
+        'Não há etapas cadastradas para iniciar o pedido',
+      );
+    }
+
+    const indiceInicial =
+      dto.etapaInicialId === undefined
+        ? 0
+        : etapas.findIndex((etapa) => etapa.id === dto.etapaInicialId);
+
+    if (indiceInicial === -1) {
+      throw new BadRequestException('Etapa inicial não encontrada');
+    }
+
+    const etapaInicial = etapas[indiceInicial];
+    const dataInicio = new Date(dto.dataInicio);
+    const agora = new Date();
+
+    const historicos = etapas
+      .slice(0, indiceInicial + 1)
+      .map((etapa, indice) => ({
+        etapaId: etapa.id,
+        usuarioId,
+        dataHora: indice === indiceInicial ? agora : dataInicio,
+      }));
+
+    const situacao =
+      indiceInicial === etapas.length - 1 ? 'FINALIZADO' : 'EM_ANDAMENTO';
 
     for (let tentativa = 0; tentativa < MAX_TENTATIVAS; tentativa++) {
       const codigo = this.gerarCodigo();
@@ -43,23 +71,17 @@ export class PedidosService {
           data: {
             codigo,
             nomeCliente: dto.nomeCliente,
-            titulo: dto.titulo,
-            dataInicio: new Date(dto.dataInicio),
+            observacao: dto.observacao ?? null,
+            dataInicio,
+            situacao,
             criadoPorId: usuarioId,
-            ...(etapaInicial &&{
-              etapaAtualId: etapaInicial.id,
-              historicos:{
-                create:{
-                  etapaId: etapaInicial.id,
-                  usuarioId,
-                }
-              }
-            }),
+            etapaAtualId: etapaInicial.id,
+            historicos: { create: historicos },
           },
-          include: { etapaAtual: true },
+          include: INCLUDE_LISTAGEM,
         });
       } catch (erro) {
-        if (this.isCodigoDuplicado(erro)) continue; 
+        if (this.isCodigoDuplicado(erro)) continue;
         throw erro;
       }
     }
@@ -69,11 +91,11 @@ export class PedidosService {
     );
   }
 
-  // LISTAR E PESQUISAR 
   async listar(query: ListarPedidosQueryDto, usuarioId: number) {
     await this.garantirUsuarioAtivo(usuarioId);
 
-    const { search, situacao, etapaId, page = 1, limit = 10 } = query;
+    const { search, situacao, etapaId, limit } = query;
+    const page = query.page ?? 1;
 
     const where: Prisma.PedidoWhereInput = {
       ...(situacao && { situacao }),
@@ -82,26 +104,32 @@ export class PedidosService {
         OR: [
           { codigo: { contains: search, mode: 'insensitive' } },
           { nomeCliente: { contains: search, mode: 'insensitive' } },
-          { titulo: { contains: search, mode: 'insensitive' } },
         ],
       }),
     };
 
-    const [itens, total] = await this.prisma.$transaction([
-      this.prisma.pedido.findMany({
-        where,
-        include: { etapaAtual: true },
-        orderBy: { criadoEm: 'desc' },
-        skip: (page - 1) * limit,
-        take: limit,
-      }),
-      this.prisma.pedido.count({ where }),
-    ]);
+    const [itens, total, todos, emAndamento, finalizados] =
+      await this.prisma.$transaction([
+        this.prisma.pedido.findMany({
+          where,
+          include: INCLUDE_LISTAGEM,
+          orderBy: { criadoEm: 'desc' },
+          ...(limit && { skip: (page - 1) * limit, take: limit }),
+        }),
+        this.prisma.pedido.count({ where }),
+        this.prisma.pedido.count(),
+        this.prisma.pedido.count({ where: { situacao: 'EM_ANDAMENTO' } }),
+        this.prisma.pedido.count({ where: { situacao: 'FINALIZADO' } }),
+      ]);
 
-    return { itens, total, page, limit, totalPaginas: Math.ceil(total / limit) };
+    return {
+      itens,
+      total,
+      totais: { todos, emAndamento, finalizados },
+      ...(limit && { page, limit, totalPaginas: Math.ceil(total / limit) }),
+    };
   }
 
-  // CONSULTAR POR CÓDIGO
   async buscarPorCodigo(codigo: string, usuarioId?: number) {
     if (usuarioId !== undefined) {
       await this.garantirUsuarioAtivo(usuarioId);
@@ -131,20 +159,26 @@ export class PedidosService {
     );
 
     return {
+      id: pedido.id,
       codigo: pedido.codigo,
       nomeCliente: pedido.nomeCliente,
-      titulo: pedido.titulo,
+      observacao: pedido.observacao,
       situacao: pedido.situacao,
+      dataInicio: pedido.dataInicio,
       criadoEm: pedido.criadoEm,
       dataUltimaAtualizacao: pedido.dataUltimaAtualizacao,
       etapaAtual: pedido.etapaAtual
-        ? { nome: pedido.etapaAtual.nome, ordem: pedido.etapaAtual.ordem }
+        ? {
+            id: pedido.etapaAtual.id,
+            nome: pedido.etapaAtual.nome,
+            ordem: pedido.etapaAtual.ordem,
+          }
         : null,
       etapas: etapas.map((etapa) => {
-        // A data continua sendo a do último registro de transição da etapa.
         const registro =
-          pedido.historicos.filter((item) => item.etapaId === etapa.id).at(-1) ??
-          null;
+          pedido.historicos
+            .filter((item) => item.etapaId === etapa.id)
+            .at(-1) ?? null;
 
         let status: StatusEtapa = 'PENDENTE';
         if (ordemAtual !== null) {
@@ -155,62 +189,53 @@ export class PedidosService {
         }
 
         return {
+          id: etapa.id,
           nome: etapa.nome,
           ordem: etapa.ordem,
           dataHora: registro?.dataHora ?? null,
-          // Sem etapa atual não há limite seguro para publicar observações.
-          observacao: ordemAtual !== null && etapa.ordem <= ordemAtual
-            ? observacoesPorEtapa.get(etapa.id) ?? null
-            : null,
+          observacao:
+            ordemAtual !== null && etapa.ordem <= ordemAtual
+              ? (observacoesPorEtapa.get(etapa.id) ?? null)
+              : null,
           status,
         };
       }),
     };
   }
 
-    // ATUALIZAR DADOS DO PEDIDO
   async atualizar(id: number, dto: AtualizarPedidoDto, usuarioId: number) {
     await this.garantirUsuarioAtivo(usuarioId);
 
     const pedido = await this.prisma.pedido.findUnique({
       where: { id },
-      select: { id: true, situacao: true },
+      select: { id: true },
     });
 
     if (!pedido) {
       throw new NotFoundException('Pedido não encontrado');
-    }
-    if (pedido.situacao === 'FINALIZADO') {
-      throw new ConflictException('Pedido finalizado não pode ser editado');
     }
 
     return this.prisma.pedido.update({
       where: { id },
       data: {
         ...(dto.nomeCliente !== undefined && { nomeCliente: dto.nomeCliente }),
-        ...(dto.titulo !== undefined && { titulo: dto.titulo }),
+        ...(dto.observacao !== undefined && { observacao: dto.observacao }),
         ...(dto.dataInicio !== undefined && {
           dataInicio: new Date(dto.dataInicio),
         }),
       },
-      include: { etapaAtual: true },
+      include: INCLUDE_LISTAGEM,
     });
   }
 
-  //AUXILIARES
   private gerarCodigo(): string {
-    const bytes = randomBytes(6);
-    let sufixo = '';
-    for (const byte of bytes) {
-      sufixo += ALFABETO[byte % ALFABETO.length];
-    }
-    return `QD-${new Date().getFullYear()}-${sufixo}`; 
+    return String(randomInt(CODIGO_MIN, CODIGO_MAX + 1));
   }
 
   private isCodigoDuplicado(erro: unknown): boolean {
     return (
       erro instanceof Prisma.PrismaClientKnownRequestError &&
-      erro.code === 'P2002' 
+      erro.code === 'P2002'
     );
   }
 

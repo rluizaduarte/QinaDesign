@@ -1,8 +1,9 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import Box from "@mui/material/Box";
 import InputBase from "@mui/material/InputBase";
+import Typography from "@mui/material/Typography";
 import { alpha } from "@mui/material/styles";
 import { ChevronDown, Search } from "lucide-react";
 import CartaoResumo from "./CartaoResumo";
@@ -12,10 +13,10 @@ import SectionTitle from "./SectionTitle";
 import SidebarAdm from "./SidebarAdm";
 import TabelaPedidos from "./TabelaPedidos";
 import {
-  PEDIDOS_ADM,
-  carregarPedidosAdm,
   criarPedidoAdm,
-  etapasDe,
+  listarEtapas,
+  listarPedidosAdm,
+  rotuloDaEtapa,
 } from "../lib/pedidosAdm";
 
 const DISTANCIA_SIDEBAR = 115;
@@ -25,41 +26,56 @@ const ESPACO_BLOCOS = 32;
 const ALTURA_CAMPO = 49;
 const LARGURA_BUSCA = 490;
 const LARGURA_FILTRO = 203;
-// 490 + 16 + 203 = 709
 const ESPACO_BUSCA_FILTRO = LARGURA_CONTEUDO - LARGURA_BUSCA - LARGURA_FILTRO;
 
 const FILTROS_VALIDOS = ["TODOS", "EM_ANDAMENTO", "FINALIZADO"];
 
+const TEXTO_APOIO = {
+  fontSize: { xs: 14, md: 15 },
+  fontWeight: 300,
+  color: "primary.dark",
+};
+
 export default function PainelAdm() {
-  const [listaPedidos, setListaPedidos] = useState(PEDIDOS_ADM);
+  const [listaPedidos, setListaPedidos] = useState([]);
+  const [totais, setTotais] = useState({
+    todos: 0,
+    emAndamento: 0,
+    finalizados: 0,
+  });
+  const [etapas, setEtapas] = useState([]);
+  const [carregando, setCarregando] = useState(true);
+  const [erro, setErro] = useState("");
   const [filtro, setFiltro] = useState("TODOS");
-  const [etapa, setEtapa] = useState("");
+  const [etapaId, setEtapaId] = useState("");
   const [busca, setBusca] = useState("");
   const [novoPedidoAberto, setNovoPedidoAberto] = useState(false);
 
+  const carregar = useCallback(async () => {
+    try {
+      const [lista, listaEtapas] = await Promise.all([
+        listarPedidosAdm(),
+        listarEtapas(),
+      ]);
+      setListaPedidos(lista.itens);
+      setTotais(lista.totais);
+      setEtapas(listaEtapas);
+      setErro("");
+    } catch (falha) {
+      setErro(falha.message);
+    } finally {
+      setCarregando(false);
+    }
+  }, []);
+
   useEffect(() => {
-    setListaPedidos(carregarPedidosAdm());
+    carregar();
 
     const filtroDaUrl = new URLSearchParams(window.location.search).get(
       "filtro",
     );
     if (FILTROS_VALIDOS.includes(filtroDaUrl)) setFiltro(filtroDaUrl);
-  }, []);
-
-  const etapas = useMemo(() => etapasDe(listaPedidos), [listaPedidos]);
-
-  const contagens = useMemo(
-    () => ({
-      TODOS: listaPedidos.length,
-      EM_ANDAMENTO: listaPedidos.filter(
-        (pedido) => pedido.situacao === "EM_ANDAMENTO",
-      ).length,
-      FINALIZADO: listaPedidos.filter(
-        (pedido) => pedido.situacao === "FINALIZADO",
-      ).length,
-    }),
-    [listaPedidos],
-  );
+  }, [carregar]);
 
   const pedidos = useMemo(() => {
     const termo = busca.trim().replace(/^#/, "").toLowerCase();
@@ -68,17 +84,19 @@ export default function PainelAdm() {
       const combinaFiltro = filtro === "TODOS" || pedido.situacao === filtro;
       const combinaBusca =
         !termo || pedido.codigo.toLowerCase().includes(termo);
-      const combinaEtapa = !etapa || pedido.etapaAtual === etapa;
+      const combinaEtapa =
+        !etapaId || pedido.etapaAtual?.id === Number(etapaId);
 
       return combinaFiltro && combinaBusca && combinaEtapa;
     });
-  }, [busca, etapa, filtro, listaPedidos]);
+  }, [busca, etapaId, filtro, listaPedidos]);
 
-  function cadastrarPedido(dados) {
-    setListaPedidos(criarPedidoAdm(dados));
+  async function cadastrarPedido(dados) {
+    await criarPedidoAdm(dados);
+    await carregar();
 
     setFiltro("TODOS");
-    setEtapa("");
+    setEtapaId("");
     setBusca("");
     setNovoPedidoAberto(false);
   }
@@ -127,15 +145,9 @@ export default function PainelAdm() {
               gap: `${ESPACO_BLOCOS}px`,
             }}
           >
-            <CartaoResumo
-              valor={contagens.TODOS}
-              rotulo="Pedidos cadastrados"
-            />
-            <CartaoResumo
-              valor={contagens.EM_ANDAMENTO}
-              rotulo="Em andamento"
-            />
-            <CartaoResumo valor={contagens.FINALIZADO} rotulo="Finalizados" />
+            <CartaoResumo valor={totais.todos} rotulo="Pedidos cadastrados" />
+            <CartaoResumo valor={totais.emAndamento} rotulo="Em andamento" />
+            <CartaoResumo valor={totais.finalizados} rotulo="Finalizados" />
           </Box>
 
           <Box
@@ -146,8 +158,6 @@ export default function PainelAdm() {
               gap: `${ESPACO_BUSCA_FILTRO}px`,
             }}
           >
-            {/* Busca com o mesmo desenho do SearchForm da home, mas de
-                largura fixa e filtrando a lista enquanto o usuário digita. */}
             <Box
               component="form"
               role="search"
@@ -173,7 +183,6 @@ export default function PainelAdm() {
                   flex: 1,
                   minWidth: 0,
                   color: "inherit",
-                  // 16px no celular evita o zoom automático do iOS ao focar
                   fontSize: { xs: "16px", md: "0.9rem" },
                   fontWeight: 500,
                   letterSpacing: "0.02em",
@@ -195,8 +204,8 @@ export default function PainelAdm() {
             >
               <Box
                 component="select"
-                value={etapa}
-                onChange={(event) => setEtapa(event.target.value)}
+                value={etapaId}
+                onChange={(event) => setEtapaId(event.target.value)}
                 aria-label="Filtrar por etapa"
                 sx={{
                   width: "100%",
@@ -220,9 +229,9 @@ export default function PainelAdm() {
                 }}
               >
                 <option value="">Todas as etapas</option>
-                {etapas.map((nome) => (
-                  <option key={nome} value={nome}>
-                    {nome}
+                {etapas.map((etapa) => (
+                  <option key={etapa.id} value={etapa.id}>
+                    {rotuloDaEtapa(etapa)}
                   </option>
                 ))}
               </Box>
@@ -244,12 +253,26 @@ export default function PainelAdm() {
             </Box>
           </Box>
 
-          <TabelaPedidos pedidos={pedidos} />
+          {erro && (
+            <Typography
+              role="alert"
+              sx={{ ...TEXTO_APOIO, color: "error.main" }}
+            >
+              {erro}
+            </Typography>
+          )}
+
+          {carregando ? (
+            <Typography sx={TEXTO_APOIO}>Carregando pedidos...</Typography>
+          ) : (
+            !erro && <TabelaPedidos pedidos={pedidos} />
+          )}
         </Box>
       </Box>
 
       <FormularioNovoPedido
         aberto={novoPedidoAberto}
+        etapas={etapas}
         onFechar={() => setNovoPedidoAberto(false)}
         onCadastrar={cadastrarPedido}
       />

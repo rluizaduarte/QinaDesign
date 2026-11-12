@@ -88,7 +88,8 @@ export default async function Page({ params }) {
               color: "primary.dark",
             }}
           >
-            {pedido.titulo} — {pedido.nomeCliente}
+            {pedido.nomeCliente}
+            {pedido.observacao && `: ${pedido.observacao}`}
           </Typography>
 
           <Box>
