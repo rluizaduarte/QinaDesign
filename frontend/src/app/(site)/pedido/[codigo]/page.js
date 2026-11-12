@@ -80,18 +80,6 @@ export default async function Page({ params }) {
             #{pedido.codigo}
           </SectionTitle>
 
-          <Typography
-            sx={{
-              mb: 4,
-              fontSize: { xs: 14, md: 15 },
-              fontWeight: 300,
-              color: "primary.dark",
-            }}
-          >
-            {pedido.nomeCliente}
-            {pedido.observacao && `: ${pedido.observacao}`}
-          </Typography>
-
           <Box>
             {pedido.etapas.map((etapa) => {
               const ultima = etapa.ordem === pedido.etapas.length;

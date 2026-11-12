@@ -1,6 +1,7 @@
 "use client";
 
 import EtapaTextos from "./EtapaTextos";
+import { LARGURA_COLUNA_ETAPA } from "./EtapaAtual";
 import Box from "@mui/material/Box";
 import { alpha } from "@mui/material/styles";
 import { Check } from "lucide-react";
@@ -12,7 +13,7 @@ export default function EtapaConcluida({ nome, data, comentario, ultima }) {
     <Box sx={{ display: "flex", gap: { xs: 1.5, md: 2 } }}>
       <Box
         sx={{
-          width: TAMANHO,
+          width: LARGURA_COLUNA_ETAPA,
           flexShrink: 0,
           display: "flex",
           flexDirection: "column",

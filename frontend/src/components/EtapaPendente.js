@@ -4,6 +4,7 @@ import Typography from "@mui/material/Typography";
 import Box from "@mui/material/Box";
 import { alpha } from "@mui/material/styles";
 import { Loader } from "lucide-react";
+import { LARGURA_COLUNA_ETAPA } from "./EtapaAtual";
 
 const TAMANHO = { xs: 46, md: 60 };
 
@@ -12,7 +13,7 @@ export default function EtapaPendente({ nome, ultima }) {
     <Box sx={{ display: "flex", gap: { xs: 1.5, md: 2 } }}>
       <Box
         sx={{
-          width: TAMANHO,
+          width: LARGURA_COLUNA_ETAPA,
           flexShrink: 0,
           display: "flex",
           flexDirection: "column",
