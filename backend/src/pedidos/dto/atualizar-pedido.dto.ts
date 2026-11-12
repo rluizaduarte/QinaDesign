@@ -1,9 +1,11 @@
+import { Transform } from 'class-transformer';
 import {
   IsDateString,
   IsOptional,
   IsString,
   MaxLength,
   MinLength,
+  ValidateIf,
 } from 'class-validator';
 
 export class AtualizarPedidoDto {
@@ -14,10 +16,13 @@ export class AtualizarPedidoDto {
   nomeCliente?: string;
 
   @IsOptional()
+  @Transform(({ value }) =>
+    typeof value === 'string' && value.trim() === '' ? null : value,
+  )
+  @ValidateIf((_, value) => value !== null)
   @IsString()
-  @MinLength(2)
-  @MaxLength(150)
-  titulo?: string;
+  @MaxLength(500)
+  observacao?: string | null;
 
   @IsOptional()
   @IsDateString()

@@ -17,8 +17,9 @@ import {
   atualizarPedidoAdm,
   buscarPedidoAdm,
   criarPedidoAdm,
+  listarEtapas,
 } from "../lib/pedidosAdm";
-import { formatarCriadoEm } from "../lib/pedidos";
+import { formatarCriadoEm } from "../lib/datas";
 import { CAMPO, TEXTAREA, TITULO_CAMPO } from "./EstilosCampo";
 
 const DISTANCIA_SIDEBAR = 115;
@@ -34,13 +35,36 @@ const TEXTO_APOIO = {
 export default function EditarPedido({ codigo }) {
   const router = useRouter();
   const [pedido, setPedido] = useState(null);
+  const [etapas, setEtapas] = useState([]);
   const [carregado, setCarregado] = useState(false);
+  const [erro, setErro] = useState("");
   const [secao, setSecao] = useState("dados");
   const [novoPedidoAberto, setNovoPedidoAberto] = useState(false);
 
   useEffect(() => {
-    setPedido(buscarPedidoAdm(codigo));
-    setCarregado(true);
+    let ativo = true;
+
+    async function carregar() {
+      try {
+        const [dados, listaEtapas] = await Promise.all([
+          buscarPedidoAdm(codigo),
+          listarEtapas(),
+        ]);
+        if (!ativo) return;
+        setPedido(dados);
+        setEtapas(listaEtapas);
+      } catch (falha) {
+        if (!ativo) return;
+        if (falha.status !== 404) setErro(falha.message);
+      } finally {
+        if (ativo) setCarregado(true);
+      }
+    }
+
+    carregar();
+    return () => {
+      ativo = false;
+    };
   }, [codigo]);
 
   function irParaLista() {
@@ -53,13 +77,13 @@ export default function EditarPedido({ codigo }) {
     );
   }
 
-  function salvarPedido(dados) {
-    atualizarPedidoAdm(codigo, dados);
+  async function salvarPedido(dados) {
+    await atualizarPedidoAdm(pedido.id, dados);
     irParaLista();
   }
 
-  function cadastrarPedido(dados) {
-    criarPedidoAdm(dados);
+  async function cadastrarPedido(dados) {
+    await criarPedidoAdm(dados);
     setNovoPedidoAberto(false);
     irParaLista();
   }
@@ -119,8 +143,15 @@ export default function EditarPedido({ codigo }) {
             <SectionTitle component="h1" sx={{ mb: 2 }}>
               #{codigo}
             </SectionTitle>
-            <Typography sx={{ ...TEXTO_APOIO, mb: 3 }}>
-              Não encontramos nenhum pedido com esse código.
+            <Typography
+              role={erro ? "alert" : undefined}
+              sx={{
+                ...TEXTO_APOIO,
+                mb: 3,
+                ...(erro && { color: "error.main" }),
+              }}
+            >
+              {erro || "Não encontramos nenhum pedido com esse código."}
             </Typography>
             <BotaoAcao component={Link} href="/dashboard">
               Voltar para a lista
@@ -165,6 +196,7 @@ export default function EditarPedido({ codigo }) {
 
       <FormularioNovoPedido
         aberto={novoPedidoAberto}
+        etapas={etapas}
         onFechar={() => setNovoPedidoAberto(false)}
         onCadastrar={cadastrarPedido}
       />
@@ -176,17 +208,31 @@ function SecaoDados({ pedido, onSalvar, onEditarEtapa }) {
   const [nomeCliente, setNomeCliente] = useState(pedido.nomeCliente);
   const [observacao, setObservacao] = useState(pedido.observacao ?? "");
   const [erro, setErro] = useState("");
+  const [erroGeral, setErroGeral] = useState("");
+  const [salvando, setSalvando] = useState(false);
 
-  function enviar(event) {
+  async function enviar(event) {
     event.preventDefault();
+    if (salvando) return;
 
     const nome = nomeCliente.trim();
-    if (!nome) {
+    if (nome.length < 2) {
       setErro("Informe o nome do cliente.");
       return;
     }
 
-    onSalvar({ nomeCliente: nome, observacao: observacao.trim() || null });
+    setSalvando(true);
+    setErroGeral("");
+
+    try {
+      await onSalvar({
+        nomeCliente: nome,
+        observacao: observacao.trim() || null,
+      });
+    } catch (falha) {
+      setErroGeral(falha.message);
+      setSalvando(false);
+    }
   }
 
   return (
@@ -261,7 +307,9 @@ function SecaoDados({ pedido, onSalvar, onEditarEtapa }) {
                 whiteSpace: "nowrap",
               }}
             >
-              {pedido.etapaAtual}
+              {pedido.etapaAtual
+                ? `${pedido.etapaAtual.ordem}. ${pedido.etapaAtual.nome}`
+                : "—"}
             </Typography>
 
             <ButtonBase
@@ -293,7 +341,15 @@ function SecaoDados({ pedido, onSalvar, onEditarEtapa }) {
           />
         </Box>
 
-        <BotaoAcao type="submit">Salvar alterações</BotaoAcao>
+        {erroGeral && (
+          <Typography role="alert" sx={{ fontSize: 13, color: "error.main" }}>
+            {erroGeral}
+          </Typography>
+        )}
+
+        <BotaoAcao type="submit" disabled={salvando}>
+          {salvando ? "Salvando..." : "Salvar alterações"}
+        </BotaoAcao>
       </Box>
     </Box>
   );
@@ -306,7 +362,7 @@ function SecaoEmConstrucao({ titulo }) {
       <SectionTitle component="h2" sx={{ mb: 2 }}>
         {titulo}
       </SectionTitle>
-      <Typography sx={TEXTO_APOIO}>Seção em construção.</Typography>
+      <Typography sx={TEXTO_APOIO}>Em breve!</Typography>
     </>
   );
 }

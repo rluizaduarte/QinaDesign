@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import Box from "@mui/material/Box";
+import Typography from "@mui/material/Typography";
 import { alpha } from "@mui/material/styles";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import BotaoAcao from "./BotaoAcao";
@@ -13,15 +14,12 @@ import EtapaCirculoAdm, {
 import Label from "./Label";
 import SectionTitle from "./SectionTitle";
 import { BOTAO_NEUTRO } from "./EstilosCampo";
-import { atualizarPedidoAdm } from "../lib/pedidosAdm";
 import {
-  ETAPAS,
-  carregarProgressoAdm,
-  formatarAtualizadoEtapa,
-  formatarDataEtapa,
-  indiceDaEtapa,
-  salvarProgressoAdm,
-} from "../lib/etapasAdm";
+  buscarPedidoAdm,
+  comentarEtapaPedido,
+  mudarEtapaPedido,
+} from "../lib/pedidosAdm";
+import { formatarAtualizadoEtapa, formatarDataEtapa } from "../lib/datas";
 
 const LARGURA_CONTEUDO = 645;
 const ESPACO_BLOCOS = 32;
@@ -35,32 +33,26 @@ const LINHA = {
   borderColor: (theme) => alpha(theme.palette.text.primary, 0.2),
 };
 
-function textoDaData(situacao, valor) {
-  if (situacao === "PENDENTE") return null;
-  return situacao === "ATUAL"
-    ? formatarAtualizadoEtapa(valor)
-    : formatarDataEtapa(valor);
+function textoDaData(etapa) {
+  if (etapa.status === "PENDENTE") return null;
+  return etapa.status === "ATUAL"
+    ? formatarAtualizadoEtapa(etapa.dataHora)
+    : formatarDataEtapa(etapa.dataHora);
 }
 
 export default function SecaoEtapasAdm({ pedido, onAtualizar }) {
-  const [progresso, setProgresso] = useState(null);
-  const [podeVoltar, setPodeVoltar] = useState(true);
   const [comentando, setComentando] = useState(false);
+  const [ocupado, setOcupado] = useState(false);
+  const [erro, setErro] = useState("");
   const trilhaRef = useRef(null);
   const etapaAtualRef = useRef(null);
 
-  useEffect(() => {
-    setProgresso(
-      carregarProgressoAdm(pedido.codigo, {
-        etapaIndice: indiceDaEtapa(pedido.etapaAtual),
-        criadoEm: pedido.criadoEm,
-      }),
-    );
-  }, [pedido.codigo]); // eslint-disable-line react-hooks/exhaustive-deps
+  const etapas = pedido.etapas ?? [];
+  const indiceAtual = etapas.findIndex((etapa) => etapa.status === "ATUAL");
+  const ultimoIndice = etapas.length - 1;
+  const etapaAtual = indiceAtual === -1 ? null : etapas[indiceAtual];
+  const comentarioAtual = etapaAtual?.observacao ?? "";
 
-  const indiceAtual = progresso?.etapaIndice ?? 0;
-
-  // Mantém a etapa atual centralizada na trilha
   useEffect(() => {
     const trilha = trilhaRef.current;
     const etapa = etapaAtualRef.current;
@@ -78,52 +70,43 @@ export default function SecaoEtapasAdm({ pedido, onAtualizar }) {
     });
   }, [indiceAtual, comentando]);
 
-  if (!progresso) return null;
-
-  const ultimoIndice = ETAPAS.length - 1;
-  const comentarioAtual = progresso.comentarios[indiceAtual] ?? "";
-
-  function salvar(novoProgresso) {
-    setProgresso(novoProgresso);
-    salvarProgressoAdm(pedido.codigo, novoProgresso);
+  async function recarregar() {
+    onAtualizar?.(await buscarPedidoAdm(pedido.codigo));
   }
 
-  function mudarEtapa(novoIndice) {
-    salvar({
-      ...progresso,
-      etapaIndice: novoIndice,
-      datas: { ...progresso.datas, [novoIndice]: new Date().toISOString() },
-    });
+  async function mudarEtapa(novoIndice) {
+    if (ocupado || novoIndice < 0 || novoIndice > ultimoIndice) return;
 
-    const lista = atualizarPedidoAdm(pedido.codigo, {
-      etapaAtual: ETAPAS[novoIndice],
-      situacao: novoIndice === ultimoIndice ? "FINALIZADO" : "EM_ANDAMENTO",
-    });
-    onAtualizar?.(
-      lista.find((item) => item.codigo === pedido.codigo) ?? pedido,
-    );
-
-    setComentando(false);
+    setOcupado(true);
+    setErro("");
+    try {
+      await mudarEtapaPedido(pedido.id, etapas[novoIndice].id);
+      await recarregar();
+      setComentando(false);
+    } catch (falha) {
+      setErro(falha.message);
+    } finally {
+      setOcupado(false);
+    }
   }
 
-  function avancar() {
-    if (indiceAtual >= ultimoIndice) return;
-    mudarEtapa(indiceAtual + 1);
-    setPodeVoltar(true);
-  }
+  async function comentar(texto) {
+    if (!texto) {
+      setErro("Escreva um comentário antes de salvar.");
+      return;
+    }
 
-  function voltar() {
-    if (!podeVoltar || indiceAtual === 0) return;
-    mudarEtapa(indiceAtual - 1);
-    setPodeVoltar(false);
-  }
-
-  function comentar(texto) {
-    salvar({
-      ...progresso,
-      comentarios: { ...progresso.comentarios, [indiceAtual]: texto },
-    });
-    setComentando(false);
+    setOcupado(true);
+    setErro("");
+    try {
+      await comentarEtapaPedido(pedido.id, texto);
+      await recarregar();
+      setComentando(false);
+    } catch (falha) {
+      setErro(falha.message);
+    } finally {
+      setOcupado(false);
+    }
   }
 
   return (
@@ -134,15 +117,18 @@ export default function SecaoEtapasAdm({ pedido, onAtualizar }) {
       </SectionTitle>
 
       <Box sx={{ width: "100%", maxWidth: LARGURA_CONTEUDO }}>
-        {comentando ? (
+        {comentando && etapaAtual ? (
           <Box sx={{ display: "flex", alignItems: "flex-start" }}>
             <Box sx={{ ...LINHA, width: LINHA_ANTES }} />
-            <CirculoEtapa numero={indiceAtual + 1} situacao="ATUAL" />
+            <CirculoEtapa numero={etapaAtual.ordem} situacao="ATUAL" />
             <Box sx={{ ...LINHA, width: LINHA_DEPOIS }} />
             <ComentarioEtapa
               valorInicial={comentarioAtual}
               onSalvar={comentar}
-              onCancelar={() => setComentando(false)}
+              onCancelar={() => {
+                setErro("");
+                setComentando(false);
+              }}
               sx={{ flex: 1, minWidth: 0 }}
             />
           </Box>
@@ -158,35 +144,28 @@ export default function SecaoEtapasAdm({ pedido, onAtualizar }) {
                 pb: 1,
               }}
             >
-              {ETAPAS.map((nome, indice) => {
-                const situacao =
-                  indice < indiceAtual
-                    ? "CONCLUIDA"
-                    : indice === indiceAtual
-                      ? "ATUAL"
-                      : "PENDENTE";
-
-                return (
-                  <EtapaCirculoAdm
-                    key={nome}
-                    numero={indice + 1}
-                    nome={nome}
-                    situacao={situacao}
-                    data={textoDaData(situacao, progresso.datas[indice])}
-                    acao={
-                      situacao === "ATUAL"
-                        ? {
-                            rotulo: comentarioAtual
-                              ? "Editar comentário"
-                              : "Comentar",
-                            onClick: () => setComentando(true),
-                          }
-                        : undefined
-                    }
-                    refAtual={situacao === "ATUAL" ? etapaAtualRef : undefined}
-                  />
-                );
-              })}
+              {etapas.map((etapa) => (
+                <EtapaCirculoAdm
+                  key={etapa.id}
+                  numero={etapa.ordem}
+                  nome={etapa.nome}
+                  situacao={etapa.status}
+                  data={textoDaData(etapa)}
+                  acao={
+                    etapa.status === "ATUAL"
+                      ? {
+                          rotulo: comentarioAtual
+                            ? "Editar comentário"
+                            : "Comentar",
+                          onClick: () => setComentando(true),
+                        }
+                      : undefined
+                  }
+                  refAtual={
+                    etapa.status === "ATUAL" ? etapaAtualRef : undefined
+                  }
+                />
+              ))}
             </Box>
 
             <Box
@@ -199,8 +178,8 @@ export default function SecaoEtapasAdm({ pedido, onAtualizar }) {
             >
               <BotaoAcao
                 type="button"
-                onClick={voltar}
-                disabled={!podeVoltar || indiceAtual === 0}
+                onClick={() => mudarEtapa(indiceAtual - 1)}
+                disabled={ocupado || indiceAtual <= 0}
                 startIcon={
                   <ChevronLeft
                     size={16}
@@ -215,8 +194,10 @@ export default function SecaoEtapasAdm({ pedido, onAtualizar }) {
 
               <BotaoAcao
                 type="button"
-                onClick={avancar}
-                disabled={indiceAtual >= ultimoIndice}
+                onClick={() => mudarEtapa(indiceAtual + 1)}
+                disabled={
+                  ocupado || indiceAtual === -1 || indiceAtual >= ultimoIndice
+                }
                 endIcon={
                   <ChevronRight
                     size={16}
@@ -229,6 +210,15 @@ export default function SecaoEtapasAdm({ pedido, onAtualizar }) {
               </BotaoAcao>
             </Box>
           </>
+        )}
+
+        {erro && (
+          <Typography
+            role="alert"
+            sx={{ mt: 2, fontSize: 13, color: "error.main" }}
+          >
+            {erro}
+          </Typography>
         )}
       </Box>
     </>

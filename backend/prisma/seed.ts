@@ -1,30 +1,30 @@
-import "dotenv/config";
-import { PrismaClient } from "../src/generated/prisma/client";
-import { PrismaPg } from "@prisma/adapter-pg";
-import * as bcrypt from "bcrypt";
+import 'dotenv/config';
+import { PrismaClient } from '../src/generated/prisma/client';
+import { PrismaPg } from '@prisma/adapter-pg';
+import * as bcrypt from 'bcrypt';
 
 const adapter = new PrismaPg({ connectionString: process.env.DATABASE_URL });
 const prisma = new PrismaClient({ adapter });
 
 const etapas = [
-  "Visita técnica", 
-  "Elaboração do projeto executivo",
-  "Aprovação/revisão do projeto executivo",
-  "Revisão pré-efetivação",
-  "Efetivação do serviço",
-  "Compra de material",
-  "Recebimento de material",
-  "Fila de produção",
-  "Usinagem",
-  "Separação de peças 1",
-  "Fitamento",
-  "Separação de peças 2",
-  "Fila de pré montagem",
-  "Pré montagem",
-  "Embalagem",
-  "Expedição",
-  "Montagem",
-  "Finalização",
+  'Visita técnica',
+  'Elaboração do projeto executivo',
+  'Aprovação/revisão do projeto executivo',
+  'Revisão pré efetivação',
+  'Efetivação do serviço',
+  'Compra de material',
+  'Recebimento de material',
+  'Fila de produção',
+  'Usinagem',
+  'Separação de peças',
+  'Fitamento',
+  'Separação de peças',
+  'Fila de pré montagem',
+  'Pré montagem',
+  'Embalagem',
+  'Expedição',
+  'Montagem',
+  'Finalização',
 ];
 
 async function main() {
@@ -40,21 +40,22 @@ async function main() {
     });
   }
 
-const senhaCriptografada = await bcrypt.hash("Admin@123", 10);
-await prisma.usuario.upsert({
-  where: { email: "admin@teste.com" },
-  update: {},
-  create: {
-    nome: "Administrador",
-    email: "admin@teste.com",
-    senhaHash: senhaCriptografada,
-    perfil: "ADMINISTRADOR",
-    ativo: true,
-  },
-});
+  const senhaCriptografada = await bcrypt.hash('Admin@123', 10);
+  await prisma.usuario.upsert({
+    where: { email: 'admin@teste.com' },
+    update: {},
+    create: {
+      nome: 'Romero Lobo',
+      email: 'admin@teste.com',
+      senhaHash: senhaCriptografada,
+      perfil: 'ADMINISTRADOR',
+      ativo: true,
+    },
+  });
 
-  console.log("Seed concluído!");
+  console.log('Seed concluído!');
 }
+
 main()
   .catch((e) => {
     console.error(e);

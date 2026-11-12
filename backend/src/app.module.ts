@@ -8,6 +8,7 @@ import { FuncionariosModule } from './funcionarios/funcionarios.module';
 import { PedidosModule } from './pedidos/pedidos.module';
 import { PrismaModule } from './prisma/prisma.module';
 import { UsuariosModule } from './usuarios/usuarios.module';
+import { EtapasModule } from './etapas/etapas.module';
 
 @Module({
   imports: [
@@ -17,6 +18,7 @@ import { UsuariosModule } from './usuarios/usuarios.module';
     AndamentoModule,
     UsuariosModule,
     AuthModule,
+    EtapasModule,
     FuncionariosModule,
   ],
   controllers: [AppController],

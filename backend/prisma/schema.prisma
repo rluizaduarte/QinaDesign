@@ -21,7 +21,7 @@ model Pedido {
   id                    Int               @id @default(autoincrement())
   codigo                String            @unique
   nomeCliente           String
-  titulo                String
+  observacao            String?
   dataInicio            DateTime
   situacao              SituacaoPedido    @default(EM_ANDAMENTO)
   etapaAtualId          Int?
@@ -36,7 +36,7 @@ model Pedido {
 
 model Etapa {
   id                Int               @id @default(autoincrement())
-  nome              String            @unique
+  nome              String
   ordem             Int               @unique
   pedidosAtuais     Pedido[]          @relation("EtapaAtualPedido")
   historicos        HistoricoEtapa[]

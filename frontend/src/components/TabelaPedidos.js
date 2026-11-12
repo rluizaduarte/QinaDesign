@@ -4,12 +4,11 @@ import Link from "next/link";
 import Box from "@mui/material/Box";
 import Typography from "@mui/material/Typography";
 import { Eraser } from "lucide-react";
+import { formatarAtualizadoEm } from "../lib/pedidosAdm";
 import BotaoAcao from "./BotaoAcao";
 
 const LARGURA_BOTAO = 76;
 
-// larguras das colunas dentro dos 709px da listagem
-// a última coluna tem largura fixa igual do botão "Editar"
 const COLUNAS = [
   { titulo: "Código", largura: 78 },
   { titulo: "Cliente", largura: 150 },
@@ -89,12 +88,16 @@ export default function TabelaPedidos({ pedidos }) {
               {pedido.nomeCliente}
             </Box>
 
-            <Box component="td" title={pedido.etapaAtual} sx={CELULA_TRUNCADA}>
-              {pedido.etapaAtual}
+            <Box
+              component="td"
+              title={pedido.etapaAtual?.nome}
+              sx={CELULA_TRUNCADA}
+            >
+              {pedido.etapaAtual?.nome ?? "—"}
             </Box>
 
             <Box component="td" sx={CELULA_TRUNCADA}>
-              {pedido.atualizadoEm}
+              {formatarAtualizadoEm(pedido.dataUltimaAtualizacao)}
             </Box>
 
             <Box component="td">
