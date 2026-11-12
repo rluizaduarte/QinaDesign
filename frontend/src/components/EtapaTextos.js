@@ -1,8 +1,10 @@
 "use client";
 
 import { useState } from "react";
-import Typography from "@mui/material/Typography";
 import Box from "@mui/material/Box";
+import Popover from "@mui/material/Popover";
+import Typography from "@mui/material/Typography";
+import { alpha } from "@mui/material/styles";
 
 const LINK = {
   alignSelf: "flex-start",
@@ -18,6 +20,8 @@ const LINK = {
   color: "primary.dark",
 };
 
+const LARGURA_COMENTARIO = 340;
+
 export default function EtapaTextos({
   nome,
   data,
@@ -25,7 +29,7 @@ export default function EtapaTextos({
   acao,
   altura = 60,
 }) {
-  const [comentarioAberto, setComentarioAberto] = useState(false);
+  const [ancora, setAncora] = useState(null);
 
   return (
     <Box
@@ -75,31 +79,64 @@ export default function EtapaTextos({
             <Typography
               component="button"
               type="button"
-              onClick={() => setComentarioAberto((aberto) => !aberto)}
-              aria-expanded={comentarioAberto}
+              onClick={(event) => setAncora(event.currentTarget)}
+              aria-haspopup="dialog"
+              aria-expanded={Boolean(ancora)}
               sx={LINK}
             >
-              {comentarioAberto
-                ? "Ocultar comentário da etapa"
-                : "Visualizar comentário da etapa"}
+              Visualizar comentário da etapa
             </Typography>
 
-            {comentarioAberto && (
+            <Popover
+              open={Boolean(ancora)}
+              anchorEl={ancora}
+              onClose={() => setAncora(null)}
+              anchorOrigin={{ vertical: "bottom", horizontal: "left" }}
+              transformOrigin={{ vertical: "top", horizontal: "left" }}
+              slotProps={{
+                paper: {
+                  sx: {
+                    width: LARGURA_COMENTARIO,
+                    maxWidth: "calc(100vw - 32px)",
+                    mt: 1,
+                    p: "16px 20px",
+                    borderRadius: "4px",
+                    border: "1px solid",
+                    borderColor: (theme) =>
+                      alpha(theme.palette.text.primary, 0.15),
+                    bgcolor: "background.default",
+                    backgroundImage: "none",
+                    boxShadow: (theme) =>
+                      `0 8px 24px ${alpha(theme.palette.primary.dark, 0.18)}`,
+                  },
+                },
+              }}
+            >
               <Typography
                 sx={{
-                  mt: 0.5,
-                  maxWidth: 520,
-                  fontSize: { xs: 12, md: 13 },
-                  fontWeight: 300,
-                  fontStyle: "italic",
-                  lineHeight: 1.4,
-                  overflowWrap: "anywhere",
-                  color: "primary.dark",
+                  mb: 1,
+                  fontSize: "0.7rem",
+                  fontWeight: 500,
+                  letterSpacing: "0.15em",
+                  textTransform: "uppercase",
+                  color: "primary.light",
                 }}
               >
-                “{comentario}”
+                Comentário da etapa
               </Typography>
-            )}
+
+              <Typography
+                sx={{
+                  fontSize: 14,
+                  fontWeight: 300,
+                  lineHeight: 1.5,
+                  overflowWrap: "anywhere",
+                  color: "text.primary",
+                }}
+              >
+                {comentario}
+              </Typography>
+            </Popover>
           </>
         )
       )}
