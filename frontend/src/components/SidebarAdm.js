@@ -1,12 +1,15 @@
 "use client";
 
+import { useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import Box from "@mui/material/Box";
 import ButtonBase from "@mui/material/ButtonBase";
 import Typography from "@mui/material/Typography";
 import { alpha } from "@mui/material/styles";
 import { Plus } from "lucide-react";
+import { useUsuario } from "./UsuarioProvider";
 
 const LARGURA_SIDEBAR = 475;
 const LARGURA_CONTEUDO = 295;
@@ -117,9 +120,24 @@ export default function SidebarAdm({
   secao,
   onSecao,
   mostrarEdicao = false,
-  usuario,
-  onSair,
 }) {
+  const router = useRouter();
+  const usuario = useUsuario();
+  const [saindo, setSaindo] = useState(false);
+
+  // Apaga o cookie de sessão pelo route handler e volta ao login.
+  async function sair() {
+    if (saindo) return;
+    setSaindo(true);
+
+    try {
+      await fetch("/api/auth/logout", { method: "POST" });
+    } finally {
+      router.replace("/login");
+      router.refresh();
+    }
+  }
+
   return (
     <Box
       component="aside"
@@ -216,7 +234,8 @@ export default function SidebarAdm({
             <Typography
               component="button"
               type="button"
-              onClick={onSair}
+              onClick={sair}
+              disabled={saindo}
               sx={{
                 display: "block",
                 mt: "10px",

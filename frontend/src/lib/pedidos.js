@@ -1,18 +1,7 @@
-// Acesso à API NestJS e formatação das datas exibidas na linha do tempo.
-// A URL é lida no servidor (API_URL) e não é exposta ao navegador.
-const API_URL = (
-  process.env.API_URL ??
-  process.env.NEXT_PUBLIC_API_URL ??
-  "http://localhost:3001"
-).replace(/\/+$/, "");
+import { API_URL } from "./api";
 
 const FUSO = "America/Sao_Paulo";
 
-/**
- * Busca um pedido pelo código.
- * Retorna { pedido } em caso de sucesso ou { erro } com um dos valores:
- * "naoEncontrado" | "servico" | "conexao".
- */
 export async function buscarPedido(codigo) {
   const url = `${API_URL}/pedidos/${encodeURIComponent(codigo)}`;
 
