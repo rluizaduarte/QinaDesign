@@ -1,85 +1,92 @@
 import {
+  BadRequestException,
   ConflictException,
   ForbiddenException,
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import type { Prisma } from '../generated/prisma/client';
+import * as bcrypt from 'bcrypt';
 import { PrismaService } from '../prisma/prisma.service';
-import { usuarioPublicoSelect } from './usuario-publico';
-import type { UsuarioPublico } from './usuario-publico';
+import { CriarUsuarioDto } from './dto/criar-usuario.dto';
+import { RedefinirSenhaDto } from './dto/redefinir-senha.dto';
 
-const credenciaisSelect = {
+const SELECAO_PUBLICA = {
   id: true,
+  nome: true,
   email: true,
-  senhaHash: true,
   perfil: true,
   ativo: true,
-} as const satisfies Prisma.UsuarioSelect;
-
-export type CredenciaisUsuario = Prisma.UsuarioGetPayload<{
-  select: typeof credenciaisSelect;
-}>;
+  criadoEm: true,
+} as const;
 
 @Injectable()
 export class UsuariosService {
   constructor(private readonly prisma: PrismaService) {}
 
-  async buscarPorEmail(email: string): Promise<UsuarioPublico | null> {
-    return this.prisma.usuario.findUnique({
-      where: { email: this.normalizarEmail(email) },
-      select: usuarioPublicoSelect,
+  listar() {
+    return this.prisma.usuario.findMany({
+      select: SELECAO_PUBLICA,
+      orderBy: { nome: 'asc' },
     });
   }
 
-  async buscarPorId(id: number): Promise<UsuarioPublico | null> {
-    return this.prisma.usuario.findUnique({
+  async criar(dto: CriarUsuarioDto) {
+    const existente = await this.prisma.usuario.findUnique({
+      where: { email: dto.email },
+      select: { id: true },
+    });
+    if (existente) {
+      throw new ConflictException('Já existe um usuário com este e-mail');
+    }
+
+    return this.prisma.usuario.create({
+      data: {
+        nome: dto.nome,
+        email: dto.email,
+        senhaHash: await bcrypt.hash(dto.senha, 10),
+        perfil: 'FUNCIONARIO',
+        ativo: true,
+      },
+      select: SELECAO_PUBLICA,
+    });
+  }
+
+  async redefinirSenha(id: number, dto: RedefinirSenhaDto) {
+    await this.buscarFuncionario(id);
+
+    return this.prisma.usuario.update({
       where: { id },
-      select: usuarioPublicoSelect,
+      data: { senhaHash: await bcrypt.hash(dto.senha, 10) },
+      select: SELECAO_PUBLICA,
     });
   }
 
-  /** Uso interno: contém senhaHash e não deve compor respostas ou payloads JWT. */
-  async buscarCredenciaisPorEmail(
-    email: string,
-  ): Promise<CredenciaisUsuario | null> {
-    return this.prisma.usuario.findUnique({
-      where: { email: this.normalizarEmail(email) },
-      select: credenciaisSelect,
-    });
+  async remover(id: number, solicitanteId: number) {
+    if (id === solicitanteId) {
+      throw new BadRequestException('Você não pode excluir o próprio usuário');
+    }
+
+    await this.buscarFuncionario(id);
+    await this.prisma.usuario.delete({ where: { id } });
+
+    return { id };
   }
 
-  async garantirUsuarioAtivo(id: number): Promise<void> {
+  private async buscarFuncionario(id: number) {
     const usuario = await this.prisma.usuario.findUnique({
       where: { id },
-      select: { id: true, ativo: true },
+      select: { id: true, perfil: true },
     });
 
     if (!usuario) {
       throw new NotFoundException('Usuário não encontrado');
     }
-    if (!usuario.ativo) {
+    if (usuario.perfil === 'ADMINISTRADOR') {
       throw new ForbiddenException(
-        'Usuário inativo não pode realizar esta operação',
+        'Administradores não podem ser alterados por esta rota',
       );
     }
-  }
 
-  async garantirEmailDisponivel(
-    email: string,
-    ignorarUsuarioId?: number,
-  ): Promise<void> {
-    const usuario = await this.prisma.usuario.findUnique({
-      where: { email: this.normalizarEmail(email) },
-      select: { id: true },
-    });
-
-    if (usuario && usuario.id !== ignorarUsuarioId) {
-      throw new ConflictException('Email já cadastrado');
-    }
-  }
-
-  private normalizarEmail(email: string): string {
-    return email.trim().toLowerCase();
+    return usuario;
   }
 }

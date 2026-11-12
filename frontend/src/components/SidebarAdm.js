@@ -3,7 +3,7 @@
 import { useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import Box from "@mui/material/Box";
 import ButtonBase from "@mui/material/ButtonBase";
 import Typography from "@mui/material/Typography";
@@ -17,6 +17,10 @@ const ALTURA_BOTAO = 49;
 const ESPACO_BLOCOS = 30; // topo → logo → "Novo pedido" → navs
 const ESPACO_ITENS = 20; // label → botões e entre os botões de uma nav
 const LOGO = { largura: 166, altura: 40 };
+
+const ROTA_FUNCIONARIOS = "/dashboard/funcionarios";
+
+const ITENS_ADMIN = [{ valor: "funcionarios", rotulo: "Funcionários" }];
 
 const FILTROS = [
   { valor: "TODOS", rotulo: "Todos os pedidos" },
@@ -122,10 +126,13 @@ export default function SidebarAdm({
   mostrarEdicao = false,
 }) {
   const router = useRouter();
+  const pathname = usePathname();
   const usuario = useUsuario();
   const [saindo, setSaindo] = useState(false);
 
-  // Apaga o cookie de sessão pelo route handler e volta ao login.
+  const ehAdministrador = usuario?.perfil === "ADMINISTRADOR";
+  const naAreaAdmin = pathname?.startsWith(ROTA_FUNCIONARIOS);
+
   async function sair() {
     if (saindo) return;
     setSaindo(true);
@@ -200,11 +207,21 @@ export default function SidebarAdm({
           <Plus size={20} strokeWidth={1.5} aria-hidden="true" />
         </ButtonBase>
 
+        {ehAdministrador && (
+          <NavSidebar
+            rotulo="Admin"
+            ariaLabel="Área do administrador"
+            itens={ITENS_ADMIN}
+            valorAtivo={naAreaAdmin ? "funcionarios" : null}
+            onSelecionar={() => router.push(ROTA_FUNCIONARIOS)}
+          />
+        )}
+
         <NavSidebar
           rotulo="Filtrar"
           ariaLabel="Filtrar pedidos"
           itens={FILTROS}
-          valorAtivo={filtro}
+          valorAtivo={naAreaAdmin ? null : filtro}
           onSelecionar={onFiltro}
         />
 
